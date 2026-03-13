@@ -1,0 +1,90 @@
+﻿📘 PROJECT PROPOSAL: FRONT SIDE
+Project Title
+VanTrade: Multi-Tenant Algorithmic Strategy Marketplace
+Project Description
+VanTrade is a "Social Quant Lab" built on a layered web architecture. It allows quantitative developers to publish trading strategy "Blueprints" that investors can instantly verify and execute using their own Alpaca Paper Trading accounts. The system acts as a secure, role-gated middleware that decouples strategy logic from brokerage execution.
+Background & Problem
+* The Problem: Algorithmic trading is currently "siloed." Developers have no way to get their code peer-reviewed by others using real-time market data, and non-technical traders cannot easily run bots without managing complex local infrastructure (VPS, 24/7 uptime, API security).
+* Importance: This project democratizes quantitative finance by providing a "Cloud-Native" environment where strategies are audited, performance is transparently logged, and execution is automated without requiring the user to keep a desktop application (like MetaTrader) running.
+Objectives
+* Architectural Modularization: Build a system where trading logic is separated from API execution using the Adapter Pattern.
+* Secure Multi-Tenancy: Implement a database and backend capable of running multiple concurrent strategies across different brokerage accounts.
+* Performance Auditing: Create an immutable ledger of trades to verify strategy profitability and risk metrics.
+Scope
+* Included: Role-Based Access Control (RBAC), Strategy CRUD, Encrypted API Key Storage, and an Automated Execution Heartbeat (using Alpaca API).
+* NOT Included: Real-money/Live trading, High-Frequency Trading (HFT), or Machine Learning/AI model training.
+Target Users & Roles
+1. Strategy Provider (The Architect)
+* Responsibilities: Develops and publishes trading "Blueprints" (parameter-based logic).
+* Permissions: CREATE/UPDATE/DELETE their own Strategy Blueprints; READ aggregated performance stats of their strategies.
+2. Strategy Tester (The Investor)
+* Responsibilities: Connects personal Alpaca Paper Keys and "subscribes" to strategies to stress-test them.
+* Permissions: CREATE/DELETE personal "Subscriptions" (active bots); READ personal portfolio PnL and trade logs.
+3. Compliance Admin (The Moderator)
+* Responsibilities: Monitors platform health and audits blueprints for system safety.
+* Permissions: UPDATE Blueprint "Verified" status; READ system-wide audit logs and error reports.
+Core Features
+1. The Strategy Marketplace: A searchable hub of available trading logic modules.
+2. Automated Execution Engine: A backend service that performs "Heartbeat" checks every minute to trigger trades.
+3. Encrypted Key Vault: A secure storage system for managing third-party brokerage credentials.
+📗 PROJECT PROPOSAL: BACK SIDE
+System Workflow
+1. Publishing: A Strategy Provider saves a JSON-based Blueprint (e.g., RSI levels, MA periods) to the PostgreSQL database.
+2. Validation: The Admin approves the strategy for public listing after a safety check.
+3. Deployment: A Tester provides their Alpaca API credentials (encrypted at rest) and "subscribes" to a strategy.
+4. Execution Loop: Every 60 seconds, the Node.js Heartbeat Service fetches all active subscriptions, pings Alpaca for current prices, applies the Blueprint logic, and sends orders via the Alpaca Adapter.
+5. Logging: All trade outcomes are persisted in the Trade_Logs table for dashboard visualization.
+Technology Stack
+* Frontend: NextJS
+* Backend: NextJS App routers
+* PrismaORM: 
+* Database: PostgreSQL (Relational mapping for multi-tenancy).
+* API Integration: Alpaca Trade API SDK.
+* Security: JWT (Authentication) and AES-256 (API Key Encryption).
+Software Architecture Defense
+* Layered (N-Tier) Architecture: Separates the Presentation Layer (React), Business Logic Layer (Strategy Engine), and Data Access Layer (PostgreSQL).
+* Adapter Pattern: The system interacts with Alpaca through a specific interface, making it easy to swap Alpaca for another broker (like IBKR) without rewriting the core strategy logic.
+* Separation of Concerns: By using a "Heartbeat Service," the UI remains responsive even while the server is processing thousands of trade calculations in the background.
+
+
+🏗️ Architectural Practices for High Code Quality (CodeCharta Optimization)
+To achieve "Green Building" status in CodeCharta, we will implement the following architectural constraints. These practices directly impact the metrics of Complexity, Nesting Depth, and Maintainability.
+1. The "Thin Controller" Rule (Complexity Reduction)
+In Next.js, Server Actions and Route Handlers can easily become bloated. To keep CodeCharta "buildings" short (low complexity):
+* Practice: All business logic must reside in src/lib/domain. Route handlers should only handle request parsing and response formatting.
+* Metric Impact: Reduces Cyclomatic Complexity by removing nested if/else and switch statements from the entry points.
+2. Hexagonal Architecture (Ports and Adapters)
+To ensure low coupling and high modularity:
+* Practice: The TradingEngine must interact with an interface (Port), not the Alpaca SDK directly. The AlpacaAdapter implements this interface.
+* Metric Impact: This improves Cohesion metrics in CodeCharta. It prevents a "Spaghetti" visualization where every file is connected to every other file.
+3. High-Order Validation with Zod (Error Handling)
+Deeply nested try-catch blocks or manual if (!data) checks increase the "height" of code buildings.
+* Practice: Use Zod schemas to validate data at the edge. If validation fails, the function exits immediately.
+* Metric Impact: Reduces Nesting Depth, keeping the code structure flat and easy for CodeCharta to visualize as "healthy" blocks.
+4. Repository Pattern for Data Access
+Direct SQL queries inside UI components create high coupling and long files.
+* Practice: Every database table has a corresponding repository file (e.g., UserRepository.ts). Only these files are allowed to use Drizzle db calls.
+* Metric Impact: Lowers Lines of Code (LOC) per file and ensures a clear Separation of Concerns.
+5. Functional Programming for Trading Logic
+Trading algorithms involve many calculations (PnL, Moving Averages).
+* Practice: Use pure functions for mathematical logic. Pure functions are easy to unit test and have low complexity.
+* Metric Impact: Increases Test Coverage metrics, which often determines the "color" (Green vs Red) in CodeCharta heatmaps.
+6. Modular File Organization (The "CodeCharta" Map)
+We will organize the folder structure to create a "Neighborhood" layout:
+* src/app: Routing and UI (The "Village").
+* src/components: Reusable UI atoms (The "Infrastructure").
+* src/lib/domain: Core business logic (The "City Center").
+* src/lib/infrastructure: External adapters and DB (The "Industrial Zone").
+Summary of CodeCharta Goals:
+Metric
+	Goal
+	Practice
+	Height (Complexity)
+	Short
+	Thin Controllers & Pure Functions
+	Width (Size)
+	Narrow
+	Repository Pattern (Smaller files)
+	Color (Health)
+	Green
+	Zod Validation & 80%+ Unit Test Coverage
