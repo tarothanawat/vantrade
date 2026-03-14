@@ -6,10 +6,10 @@ import {
 import { apiClient } from './base';
 
 export const apiKeysClient = {
-  hasKey: (token: string) => apiClient.get('/api-keys/status', token, ApiKeyStatusResponseSchema),
+  hasKey: () => apiClient.get('/api-keys/status', undefined, ApiKeyStatusResponseSchema),
 
-  upsert: (dto: ApiKeyCreateDto, token: string) =>
-    apiClient.post('/api-keys', dto, token, ApiKeyMutationResponseSchema),
+  upsert: (dto: ApiKeyCreateDto) =>
+    apiClient.post('/api-keys', dto, undefined, ApiKeyMutationResponseSchema),
 
-  remove: (token: string) => apiClient.delete('/api-keys', token, ApiKeyMutationResponseSchema),
+  remove: () => apiClient.delete('/api-keys', undefined, ApiKeyMutationResponseSchema),
 };

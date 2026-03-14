@@ -33,18 +33,17 @@ Reference: `docs/SRS.md`
 
 ## Newly Implemented in this pass
 
-1. API auth now issues JWT in secure HttpOnly cookie (`vantrade_auth`) on register/login.
-2. API now supports explicit logout endpoint that clears auth cookie.
-3. JWT strategy now authenticates via bearer token **or** auth cookie.
-4. Web API requests now always send credentials (`credentials: 'include'`).
-5. Web auth pages no longer persist JWT in localStorage.
-6. Navbar logout now calls API logout endpoint for server-side cookie invalidation.
+1. Added authenticated `GET /auth/me` endpoint for current-session user profile.
+2. Added shared `AuthMeResponseSchema` and `authClient.me()` client method.
+3. Navbar now hydrates role/session state from `/auth/me` instead of relying solely on localStorage cache.
+4. Session cache in localStorage is now best-effort and server session remains source of truth.
+5. Removed legacy `localStorage.getItem('token')` usage from web pages/components and switched all protected calls to cookie-based auth.
 
 ## Next Priority Implementation Items
 
 1. **Auth Session UX Hardening (optional MVP+)**
-   - Add `/auth/me` endpoint + startup session hydration to avoid relying on localStorage `user` for role-aware navbar state.
+   - Introduce a centralized user/session provider to eliminate duplicate auth checks in pages/components.
 
 ## Suggested Order (Next Sprint)
 
-1. Session hydration (`/auth/me`) and user state provider
+1. User/session provider refactor

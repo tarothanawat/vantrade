@@ -10,24 +10,24 @@ export const blueprintsClient = {
   getAll: () =>
     apiClient.get('/blueprints', undefined, BlueprintListResponseSchema),
 
-  getAllAdmin: (token: string) =>
-    apiClient.get('/blueprints/admin/all', token, BlueprintListResponseSchema),
+  getAllAdmin: () =>
+    apiClient.get('/blueprints/admin/all', undefined, BlueprintListResponseSchema),
 
   getById: (id: string) =>
     apiClient.get(`/blueprints/${id}`, undefined, BlueprintResponseSchema),
 
-  getMine: (token: string) =>
-    apiClient.get('/blueprints/my/list', token, BlueprintListResponseSchema),
+  getMine: () =>
+    apiClient.get('/blueprints/my/list', undefined, BlueprintListResponseSchema),
 
-  create: (dto: BlueprintCreateDto, token: string) =>
-    apiClient.post('/blueprints', dto, token, BlueprintResponseSchema),
+  create: (dto: BlueprintCreateDto) =>
+    apiClient.post('/blueprints', dto, undefined, BlueprintResponseSchema),
 
-  update: (id: string, dto: BlueprintUpdateDto, token: string) =>
-    apiClient.patch(`/blueprints/${id}`, dto, token, BlueprintResponseSchema),
+  update: (id: string, dto: BlueprintUpdateDto) =>
+    apiClient.patch(`/blueprints/${id}`, dto, undefined, BlueprintResponseSchema),
 
-  remove: (id: string, token: string) =>
-    apiClient.delete<void>(`/blueprints/${id}`, token),
+  remove: (id: string) =>
+    apiClient.delete<void>(`/blueprints/${id}`),
 
-  verify: (id: string, isVerified: boolean, token: string) =>
-    apiClient.patch(`/blueprints/${id}/verify`, { isVerified }, token, BlueprintResponseSchema),
+  verify: (id: string, isVerified: boolean) =>
+    apiClient.patch(`/blueprints/${id}/verify`, { isVerified }, undefined, BlueprintResponseSchema),
 };

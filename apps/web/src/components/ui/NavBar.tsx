@@ -1,6 +1,7 @@
 'use client';
 
 import { authClient } from '@/lib/api-client/auth.client';
+import { ApiError } from '@/lib/api-client/base';
 import { Role } from '@vantrade/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -18,18 +19,30 @@ export default function NavBar() {
   const [user, setUser] = useState<UserSession | null>(null);
 
   useEffect(() => {
-    const rawUser = localStorage.getItem('user');
-    if (!rawUser) {
-      setUser(null);
-      return;
-    }
+    let isMounted = true;
 
-    try {
-      const parsed = JSON.parse(rawUser) as UserSession;
-      setUser(parsed);
-    } catch {
-      setUser(null);
-    }
+    authClient
+      .me()
+      .then((session) => {
+        if (!isMounted) return;
+        setUser(session.user);
+        localStorage.setItem('user', JSON.stringify(session.user));
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+
+        if (err instanceof ApiError && err.status === 401) {
+          localStorage.removeItem('user');
+          setUser(null);
+          return;
+        }
+
+        setUser(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [pathname]);
 
   const navLinks = useMemo(() => {

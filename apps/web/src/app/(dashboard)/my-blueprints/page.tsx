@@ -2,11 +2,11 @@
 
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
 import {
-    BlueprintCreateSchema,
-    BlueprintUpdateSchema,
-    type Blueprint,
-    type BlueprintCreateDto,
-    type BlueprintUpdateDto,
+  BlueprintCreateSchema,
+  BlueprintUpdateSchema,
+  type Blueprint,
+  type BlueprintCreateDto,
+  type BlueprintUpdateDto,
 } from '@vantrade/types';
 import { useEffect, useState } from 'react';
 
@@ -41,10 +41,8 @@ export default function MyBlueprintsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token') ?? '';
-
     blueprintsClient
-      .getMine(token)
+      .getMine()
       .then(setBlueprints)
       .catch((err) => {
         const message = err instanceof Error ? err.message : 'Failed to load your blueprints';
@@ -110,11 +108,10 @@ export default function MyBlueprintsPage() {
     const payload = parseCreatePayload();
     if (!payload) return;
 
-    const token = localStorage.getItem('token') ?? '';
     setSaving(true);
 
     try {
-      const created = await blueprintsClient.create(payload, token);
+      const created = await blueprintsClient.create(payload);
       setBlueprints((prev) => [created, ...prev]);
       setForm(initialForm);
     } catch (err) {
@@ -161,11 +158,10 @@ export default function MyBlueprintsPage() {
     const payload = parseUpdatePayload();
     if (!payload) return;
 
-    const token = localStorage.getItem('token') ?? '';
     setSaving(true);
 
     try {
-      const updated = await blueprintsClient.update(editingId, payload, token);
+      const updated = await blueprintsClient.update(editingId, payload);
       setBlueprints((prev) => prev.map((bp) => (bp.id === editingId ? updated : bp)));
       cancelEdit();
     } catch (err) {
@@ -179,11 +175,10 @@ export default function MyBlueprintsPage() {
   async function handleDelete(id: string) {
     if (!confirm('Delete this blueprint?')) return;
 
-    const token = localStorage.getItem('token') ?? '';
     setError('');
 
     try {
-      await blueprintsClient.remove(id, token);
+      await blueprintsClient.remove(id);
       setBlueprints((prev) => prev.filter((bp) => bp.id !== id));
       if (editingId === id) cancelEdit();
     } catch (err) {

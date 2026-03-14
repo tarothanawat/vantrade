@@ -21,12 +21,6 @@ export default function SubscribeButton({ blueprintId }: SubscribeButtonProps) {
   async function handleSubscribe() {
     setError('');
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-
     const rawUser = localStorage.getItem('user');
     if (rawUser) {
       try {
@@ -44,12 +38,11 @@ export default function SubscribeButton({ blueprintId }: SubscribeButtonProps) {
 
     try {
       const payload: SubscriptionCreateDto = { blueprintId };
-      await subscriptionsClient.create(payload, token);
+      await subscriptionsClient.create(payload);
       router.push('/subscriptions');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to subscribe to blueprint';
       if (message.toLowerCase().includes('unauthorized')) {
-        localStorage.removeItem('token');
         localStorage.removeItem('user');
         router.push('/auth/login');
         return;

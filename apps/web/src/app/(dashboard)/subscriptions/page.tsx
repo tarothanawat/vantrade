@@ -19,18 +19,16 @@ export default function SubscriptionsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token') ?? '';
     subscriptionsClient
-      .getMine(token)
+      .getMine()
       .then((data) => setSubscriptions(data as SubscriptionWithDetails[]))
       .catch(() => setError('Failed to load subscriptions'))
       .finally(() => setLoading(false));
   }, []);
 
   async function handleToggle(id: string, currentlyActive: boolean) {
-    const token = localStorage.getItem('token') ?? '';
     try {
-      const updated = await subscriptionsClient.toggle(id, !currentlyActive, token);
+      const updated = await subscriptionsClient.toggle(id, !currentlyActive);
       setSubscriptions((prev: SubscriptionWithDetails[]) =>
         prev.map((s) => (s.id === id ? { ...s, isActive: updated.isActive } : s)),
       );
@@ -41,9 +39,8 @@ export default function SubscriptionsPage() {
 
   async function handleRemove(id: string) {
     if (!confirm('Remove this subscription?')) return;
-    const token = localStorage.getItem('token') ?? '';
     try {
-      await subscriptionsClient.remove(id, token);
+      await subscriptionsClient.remove(id);
       setSubscriptions((prev: SubscriptionWithDetails[]) => prev.filter((s) => s.id !== id));
     } catch {
       setError('Failed to remove subscription');
