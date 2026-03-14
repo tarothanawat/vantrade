@@ -1,0 +1,78 @@
+// This is your Prisma schema file
+// Learn more about it: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PROVIDER
+  TESTER
+  ADMIN
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(TESTER)
+  createdAt     DateTime       @default(now())
+  blueprints    Blueprint[]
+  subscriptions Subscription[]
+  apiKeys       ApiKey[]
+}
+
+model Blueprint {
+  id            String         @id @default(cuid())
+  title         String
+  description   String
+  parameters    Json // RSI levels, MA periods, etc.
+  isVerified    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  authorId      String
+  author        User           @relation(fields: [authorId], references: [id])
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id          String     @id @default(cuid())
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  userId      String
+  blueprintId String
+  user        User       @relation(fields: [userId], references: [id])
+  blueprint   Blueprint  @relation(fields: [blueprintId], references: [id])
+  tradeLogs   TradeLog[]
+
+  @@unique([userId, blueprintId])
+}
+
+model ApiKey {
+  id              String @id @default(cuid())
+  encryptedKey    String // AES-256-GCM ciphertext
+  encryptedSecret String // AES-256-GCM ciphertext
+  broker          String @default("alpaca")
+  userId          String @unique
+  user            User   @relation(fields: [userId], references: [id])
+}
+
+model TradeLog {
+  id             String       @id @default(cuid())
+  symbol         String
+  side           String // "buy" | "sell"
+  quantity       Float
+  price          Float
+  pnl            Float?
+  status         String
+  executedAt     DateTime     @default(now())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  // Append-only: no updates or deletes allowed — enforced at application layer
+}
