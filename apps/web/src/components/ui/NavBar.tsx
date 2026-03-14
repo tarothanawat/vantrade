@@ -1,28 +1,63 @@
 'use client';
 
+import { Role } from '@vantrade/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+
+type UserSession = {
+  id?: string;
+  email?: string;
+  role?: Role;
+};
 
 export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [user, setUser] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) {
+      setUser(null);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(rawUser) as UserSession;
+      setUser(parsed);
+    } catch {
+      setUser(null);
+    }
+  }, [pathname]);
+
+  const navLinks = useMemo(() => {
+    const baseLinks = [{ href: '/marketplace', label: 'Marketplace' }];
+
+    if (user?.role === Role.TESTER) {
+      return [...baseLinks, { href: '/subscriptions', label: 'My Bots' }];
+    }
+
+    if (user?.role === Role.ADMIN) {
+      return [...baseLinks, { href: '/admin', label: 'Admin' }];
+    }
+
+    return baseLinks;
+  }, [user?.role]);
 
   function handleLogout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    setUser(null);
     router.push('/auth/login');
   }
 
-  const navLinks = [
-    { href: '/marketplace', label: 'Marketplace' },
-    { href: '/subscriptions', label: 'My Bots' },
-    { href: '/admin', label: 'Admin' },
-  ];
+  const roleLabel = user?.role ? user.role.toLowerCase() : 'guest';
 
   return (
     <header className="border-b border-gray-800 bg-gray-950 px-6 py-4">
       <nav className="mx-auto flex max-w-6xl items-center justify-between">
-        <Link href="/marketplace" className="text-lg font-bold text-white tracking-tight">
+        <Link href="/" className="text-lg font-bold text-white tracking-tight">
           Van<span className="text-indigo-400">Trade</span>
         </Link>
 
@@ -40,12 +75,34 @@ export default function NavBar() {
               {label}
             </Link>
           ))}
-          <button
-            onClick={handleLogout}
-            className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:border-gray-500 transition-colors"
-          >
-            Sign out
-          </button>
+
+          <span className="hidden rounded-full border border-gray-700 px-2.5 py-1 text-xs uppercase tracking-wide text-gray-300 sm:inline-flex">
+            {roleLabel}
+          </span>
+
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-gray-500"
+            >
+              Sign out
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/auth/login"
+                className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-gray-500"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/auth/register"
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+              >
+                Register
+              </Link>
+            </div>
+          )}
         </div>
       </nav>
     </header>

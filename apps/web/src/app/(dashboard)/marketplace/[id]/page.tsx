@@ -1,3 +1,4 @@
+import SubscribeButton from '@/components/marketplace/SubscribeButton';
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
 import type { Blueprint } from '@vantrade/types';
 import Link from 'next/link';
@@ -58,12 +59,7 @@ export default async function BlueprintDetailPage({ params }: Props) {
           <div><span className="text-gray-500">Sell Threshold (RSI &gt;)</span><p className="mt-1 font-semibold text-red-400">{params2.rsiSellThreshold}</p></div>
         </div>
 
-        <a
-          href="/auth/login"
-          className="block rounded-lg bg-indigo-600 py-3 text-center font-semibold text-white hover:bg-indigo-500 transition-colors"
-        >
-          Subscribe to this Blueprint
-        </a>
+        <SubscribeButton blueprintId={blueprint.id} />
       </div>
     </main>
   );
