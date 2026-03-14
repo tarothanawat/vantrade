@@ -1,20 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import type { IBrokerAdapter, OrderParams } from '@vantrade/types';
-import { OrderSide, TradeSignal } from '@vantrade/types';
+import type { BlueprintParameters, IBrokerAdapter, OrderParams } from '@vantrade/types';
+import { BlueprintParametersSchema, OrderSide, TradeSignal } from '@vantrade/types';
 import { EncryptionService } from '../encryption/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { AlpacaAdapter } from '../trading/broker/alpaca.adapter';
 import { calculateRSI, generateSignal } from '../trading/trading.engine';
 
-interface BlueprintParameters {
-  symbol: string;
-  rsiPeriod: number;
-  rsiBuyThreshold: number;
-  rsiSellThreshold: number;
-  quantity: number;
-}
+type ActiveSubscription = Awaited<ReturnType<SubscriptionsRepository['findAllActive']>>[number];
 
 @Injectable()
 export class HeartbeatService {
@@ -35,11 +29,15 @@ export class HeartbeatService {
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async processSub(sub: any): Promise<void> {
+  private async processSub(sub: ActiveSubscription): Promise<void> {
     try {
       const { blueprint, user } = sub;
-      const params = blueprint.parameters as BlueprintParameters;
+      const parsedParams = BlueprintParametersSchema.safeParse(blueprint.parameters);
+      if (!parsedParams.success) {
+        this.logger.warn(`Invalid blueprint parameters for subscription ${sub.id} — skipping`);
+        return;
+      }
+      const params: BlueprintParameters = parsedParams.data;
 
       if (!user.apiKeys || user.apiKeys.length === 0) {
         this.logger.warn(`User ${user.id} has no API key — skipping subscription ${sub.id}`);
