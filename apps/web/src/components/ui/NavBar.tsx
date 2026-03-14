@@ -1,5 +1,6 @@
 'use client';
 
+import { authClient } from '@/lib/api-client/auth.client';
 import { Role } from '@vantrade/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -53,8 +54,13 @@ export default function NavBar() {
     return baseLinks;
   }, [user?.role]);
 
-  function handleLogout() {
-    localStorage.removeItem('token');
+  async function handleLogout() {
+    try {
+      await authClient.logout();
+    } catch {
+      // best-effort logout; continue local cleanup
+    }
+
     localStorage.removeItem('user');
     setUser(null);
     router.push('/auth/login');

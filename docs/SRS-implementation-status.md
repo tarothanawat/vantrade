@@ -33,19 +33,18 @@ Reference: `docs/SRS.md`
 
 ## Newly Implemented in this pass
 
-1. Added shared response schemas in `packages/types` for:
-   - Blueprint responses
-   - Subscription responses
-   - API key responses
-   - Trade log responses (including `hold` side)
-2. Upgraded web API base client to support schema-validated response parsing.
-3. Updated auth, blueprint, subscription, and api-key clients to parse responses with shared Zod schemas.
+1. API auth now issues JWT in secure HttpOnly cookie (`vantrade_auth`) on register/login.
+2. API now supports explicit logout endpoint that clears auth cookie.
+3. JWT strategy now authenticates via bearer token **or** auth cookie.
+4. Web API requests now always send credentials (`credentials: 'include'`).
+5. Web auth pages no longer persist JWT in localStorage.
+6. Navbar logout now calls API logout endpoint for server-side cookie invalidation.
 
 ## Next Priority Implementation Items
 
-1. **Auth Storage Hardening (optional MVP+)**
-   - Move JWT from localStorage to HttpOnly cookie flow for stronger security.
+1. **Auth Session UX Hardening (optional MVP+)**
+   - Add `/auth/me` endpoint + startup session hydration to avoid relying on localStorage `user` for role-aware navbar state.
 
 ## Suggested Order (Next Sprint)
 
-1. Cookie-based auth hardening
+1. Session hydration (`/auth/me`) and user state provider

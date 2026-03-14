@@ -33,7 +33,6 @@ export default function RegisterPage() {
 
     try {
       const response = await authClient.register(parsed.data as RegisterDto);
-      localStorage.setItem('token', response.accessToken);
       localStorage.setItem('user', JSON.stringify(response.user));
       router.push('/marketplace');
     } catch (err) {

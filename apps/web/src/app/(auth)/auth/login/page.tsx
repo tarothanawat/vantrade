@@ -29,7 +29,6 @@ export default function LoginPage() {
 
     try {
       const response = await authClient.login(parsed.data as LoginDto);
-      localStorage.setItem('token', response.accessToken);
       localStorage.setItem('user', JSON.stringify(response.user));
       router.push('/marketplace');
     } catch (err) {

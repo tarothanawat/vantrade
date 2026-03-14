@@ -33,6 +33,7 @@ async function request<T>(
   const res = await fetch(`${API_BASE}/api${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!res.ok) {
