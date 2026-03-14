@@ -8,7 +8,7 @@ async function main() {
 
   // Create admin user
   const adminHash = await bcrypt.hash('Admin1234!', 12);
-  const admin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'admin@vantrade.io' },
     update: {},
     create: {
