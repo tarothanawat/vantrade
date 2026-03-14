@@ -1,3 +1,4 @@
+import { SessionProvider } from '@/components/providers/SessionProvider';
 import NavBar from '@/components/ui/NavBar';
 import type { Metadata } from 'next';
 import './globals.css';
@@ -11,8 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-950 text-gray-100 antialiased">
-        <NavBar />
-        {children}
+        <SessionProvider>
+          <NavBar />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

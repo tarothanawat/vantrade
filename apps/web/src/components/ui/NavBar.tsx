@@ -1,49 +1,15 @@
 'use client';
 
-import { authClient } from '@/lib/api-client/auth.client';
-import { ApiError } from '@/lib/api-client/base';
+import { useSession } from '@/components/providers/SessionProvider';
 import { Role } from '@vantrade/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-
-type UserSession = {
-  id?: string;
-  email?: string;
-  role?: Role;
-};
+import { useMemo } from 'react';
 
 export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<UserSession | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    authClient
-      .me()
-      .then((session) => {
-        if (!isMounted) return;
-        setUser(session.user);
-        localStorage.setItem('user', JSON.stringify(session.user));
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-
-        if (err instanceof ApiError && err.status === 401) {
-          localStorage.removeItem('user');
-          setUser(null);
-          return;
-        }
-
-        setUser(null);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [pathname]);
+  const { user, logout } = useSession();
 
   const navLinks = useMemo(() => {
     const baseLinks = [{ href: '/marketplace', label: 'Marketplace' }];
@@ -68,14 +34,7 @@ export default function NavBar() {
   }, [user?.role]);
 
   async function handleLogout() {
-    try {
-      await authClient.logout();
-    } catch {
-      // best-effort logout; continue local cleanup
-    }
-
-    localStorage.removeItem('user');
-    setUser(null);
+    await logout();
     router.push('/auth/login');
   }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useSession } from '@/components/providers/SessionProvider';
 import { authClient } from '@/lib/api-client/auth.client';
 import type { RegisterDto } from '@vantrade/types';
 import { RegisterSchema, Role } from '@vantrade/types';
@@ -9,6 +10,7 @@ import { useState } from 'react';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { setSessionUser } = useSession();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +35,7 @@ export default function RegisterPage() {
 
     try {
       const response = await authClient.register(parsed.data as RegisterDto);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      setSessionUser(response.user);
       router.push('/marketplace');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');

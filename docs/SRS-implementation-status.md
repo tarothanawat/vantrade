@@ -33,17 +33,20 @@ Reference: `docs/SRS.md`
 
 ## Newly Implemented in this pass
 
-1. Added authenticated `GET /auth/me` endpoint for current-session user profile.
-2. Added shared `AuthMeResponseSchema` and `authClient.me()` client method.
-3. Navbar now hydrates role/session state from `/auth/me` instead of relying solely on localStorage cache.
-4. Session cache in localStorage is now best-effort and server session remains source of truth.
-5. Removed legacy `localStorage.getItem('token')` usage from web pages/components and switched all protected calls to cookie-based auth.
+1. Introduced centralized session state management via `SessionProvider` + `useSession` hook.
+2. Wrapped root app layout with session provider to make auth state available globally.
+3. Refactored `NavBar`, auth pages, and subscribe flow to consume centralized session context.
+4. Removed remaining direct localStorage session dependencies in web UI.
+5. Cookie-auth + `/auth/me` now drive runtime role-aware UI behavior consistently.
 
 ## Next Priority Implementation Items
 
-1. **Auth Session UX Hardening (optional MVP+)**
-   - Introduce a centralized user/session provider to eliminate duplicate auth checks in pages/components.
+1. **Route Protection UX (optional MVP+)**
+   - Add client-side guards/redirect helpers for role-restricted pages to improve unauthorized navigation experience.
+2. **Session-Aware Data Layer (optional MVP+)**
+   - Standardize 401 handling and auto-redirect behavior in one shared utility.
 
 ## Suggested Order (Next Sprint)
 
-1. User/session provider refactor
+1. Route guard helpers
+2. Shared 401 redirect strategy

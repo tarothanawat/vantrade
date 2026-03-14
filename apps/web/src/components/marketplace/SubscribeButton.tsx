@@ -1,5 +1,6 @@
 'use client';
 
+import { useSession } from '@/components/providers/SessionProvider';
 import { subscriptionsClient } from '@/lib/api-client/subscriptions.client';
 import { Role, type SubscriptionCreateDto } from '@vantrade/types';
 import { useRouter } from 'next/navigation';
@@ -9,29 +10,28 @@ interface SubscribeButtonProps {
   blueprintId: string;
 }
 
-type StoredUser = {
-  role?: Role;
-};
-
 export default function SubscribeButton({ blueprintId }: SubscribeButtonProps) {
   const router = useRouter();
+  const { user, loading: sessionLoading } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSubscribe() {
     setError('');
 
-    const rawUser = localStorage.getItem('user');
-    if (rawUser) {
-      try {
-        const user = JSON.parse(rawUser) as StoredUser;
-        if (user.role && user.role !== Role.TESTER) {
-          setError('Only TESTER accounts can subscribe to blueprints.');
-          return;
-        }
-      } catch {
-        // Ignore malformed local storage and let API enforce auth/rbac.
-      }
+    if (sessionLoading) {
+      setError('Checking session… please try again.');
+      return;
+    }
+
+    if (!user) {
+      router.push('/auth/login');
+      return;
+    }
+
+    if (user.role !== Role.TESTER) {
+      setError('Only TESTER accounts can subscribe to blueprints.');
+      return;
     }
 
     setLoading(true);
@@ -43,7 +43,6 @@ export default function SubscribeButton({ blueprintId }: SubscribeButtonProps) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to subscribe to blueprint';
       if (message.toLowerCase().includes('unauthorized')) {
-        localStorage.removeItem('user');
         router.push('/auth/login');
         return;
       }
