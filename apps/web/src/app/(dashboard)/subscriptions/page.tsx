@@ -1,12 +1,20 @@
 'use client';
 
 import { subscriptionsClient } from '@/lib/api-client/subscriptions.client';
-import type { Subscription } from '@vantrade/types';
+import type { Subscription, TradeLog } from '@vantrade/types';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+type SubscriptionWithDetails = Subscription & {
+  blueprint?: {
+    id: string;
+    title: string;
+  };
+  tradeLogs?: TradeLog[];
+};
+
 export default function SubscriptionsPage() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -14,7 +22,7 @@ export default function SubscriptionsPage() {
     const token = localStorage.getItem('token') ?? '';
     subscriptionsClient
       .getMine(token)
-      .then(setSubscriptions)
+      .then((data) => setSubscriptions(data as SubscriptionWithDetails[]))
       .catch(() => setError('Failed to load subscriptions'))
       .finally(() => setLoading(false));
   }, []);
@@ -23,7 +31,7 @@ export default function SubscriptionsPage() {
     const token = localStorage.getItem('token') ?? '';
     try {
       const updated = await subscriptionsClient.toggle(id, !currentlyActive, token);
-      setSubscriptions((prev: Subscription[]) =>
+      setSubscriptions((prev: SubscriptionWithDetails[]) =>
         prev.map((s) => (s.id === id ? { ...s, isActive: updated.isActive } : s)),
       );
     } catch {
@@ -36,7 +44,7 @@ export default function SubscriptionsPage() {
     const token = localStorage.getItem('token') ?? '';
     try {
       await subscriptionsClient.remove(id, token);
-      setSubscriptions((prev: Subscription[]) => prev.filter((s) => s.id !== id));
+      setSubscriptions((prev: SubscriptionWithDetails[]) => prev.filter((s) => s.id !== id));
     } catch {
       setError('Failed to remove subscription');
     }
@@ -80,9 +88,8 @@ export default function SubscriptionsPage() {
               className="flex items-center justify-between rounded-xl border border-gray-800 bg-gray-900 px-6 py-4"
             >
               <div>
-                <p className="font-semibold text-white">
-                  Blueprint ID: <span className="font-mono text-sm text-gray-400">{sub.blueprintId}</span>
-                </p>
+                <p className="font-semibold text-white">{sub.blueprint?.title ?? 'Subscribed Blueprint'}</p>
+                <p className="mt-1 font-mono text-xs text-gray-500">ID: {sub.blueprintId}</p>
                 <p className="mt-1 text-xs text-gray-500">
                   Since{' '}
                   {new Date(sub.createdAt).toLocaleDateString('en-US', {
@@ -91,6 +98,23 @@ export default function SubscriptionsPage() {
                     day: 'numeric',
                   })}
                 </p>
+                <div className="mt-3 rounded-lg border border-gray-800 bg-gray-950 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Recent Trade Logs
+                  </p>
+                  {!sub.tradeLogs || sub.tradeLogs.length === 0 ? (
+                    <p className="text-xs text-gray-500">No execution logs yet.</p>
+                  ) : (
+                    <ul className="space-y-1 text-xs">
+                      {sub.tradeLogs.slice(0, 5).map((log) => (
+                        <li key={log.id} className="text-gray-300">
+                          <span className="font-semibold uppercase">{log.side}</span> · {log.symbol} · {log.quantity} @ {log.price.toFixed(2)} ·{' '}
+                          <span className="text-gray-400">{log.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-3">

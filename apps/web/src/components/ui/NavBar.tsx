@@ -35,11 +35,19 @@ export default function NavBar() {
     const baseLinks = [{ href: '/marketplace', label: 'Marketplace' }];
 
     if (user?.role === Role.TESTER) {
-      return [...baseLinks, { href: '/subscriptions', label: 'My Bots' }];
+      return [
+        ...baseLinks,
+        { href: '/subscriptions', label: 'My Bots' },
+        { href: '/api-keys', label: 'API Keys' },
+      ];
     }
 
     if (user?.role === Role.ADMIN) {
       return [...baseLinks, { href: '/admin', label: 'Admin' }];
+    }
+
+    if (user?.role === Role.PROVIDER) {
+      return [...baseLinks, { href: '/my-blueprints', label: 'My Blueprints' }];
     }
 
     return baseLinks;

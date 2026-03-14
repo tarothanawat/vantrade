@@ -1,10 +1,10 @@
-import type { AuthResponseDto, LoginDto, RegisterDto } from '@vantrade/types';
+import { AuthResponseSchema, type LoginDto, type RegisterDto } from '@vantrade/types';
 import { apiClient } from './base';
 
 export const authClient = {
   login: (dto: LoginDto) =>
-    apiClient.post<AuthResponseDto>('/auth/login', dto),
+    apiClient.post('/auth/login', dto, undefined, AuthResponseSchema),
 
   register: (dto: RegisterDto) =>
-    apiClient.post<AuthResponseDto>('/auth/register', dto),
+    apiClient.post('/auth/register', dto, undefined, AuthResponseSchema),
 };

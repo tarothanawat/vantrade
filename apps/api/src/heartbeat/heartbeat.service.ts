@@ -29,6 +29,27 @@ export class HeartbeatService {
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
   }
 
+  private async createTradeLog(
+    subId: string,
+    symbol: string,
+    side: string,
+    quantity: number,
+    price: number,
+    status: string,
+  ): Promise<void> {
+    await this.prisma.tradeLog.create({
+      data: {
+        subscriptionId: subId,
+        symbol,
+        side,
+        quantity,
+        price,
+        pnl: null,
+        status,
+      },
+    });
+  }
+
   private async processSub(sub: ActiveSubscription): Promise<void> {
     try {
       const { blueprint, user } = sub;
@@ -63,7 +84,17 @@ export class HeartbeatService {
         `${blueprint.title} — ${params.symbol} price=${currentPrice} rsi=${rsi.toFixed(2)} signal=${signal}`,
       );
 
-      if (signal === TradeSignal.HOLD) return;
+      if (signal === TradeSignal.HOLD) {
+        await this.createTradeLog(
+          sub.id,
+          params.symbol,
+          TradeSignal.HOLD,
+          0,
+          currentPrice,
+          'signal_hold',
+        );
+        return;
+      }
 
       const orderParams: OrderParams = {
         symbol: params.symbol,
@@ -75,17 +106,14 @@ export class HeartbeatService {
       const adapter = this.broker as AlpacaAdapter;
       const result = await adapter.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
 
-      await this.prisma.tradeLog.create({
-        data: {
-          subscriptionId: sub.id,
-          symbol: params.symbol,
-          side: signal,
-          quantity: params.quantity,
-          price: result.filledPrice,
-          pnl: null,
-          status: result.status,
-        },
-      });
+      await this.createTradeLog(
+        sub.id,
+        params.symbol,
+        signal,
+        params.quantity,
+        result.filledPrice,
+        result.status,
+      );
     } catch (err) {
       this.logger.error(`Error processing subscription ${sub.id}: ${(err as Error).message}`);
       // Do NOT rethrow — error isolation per subscription

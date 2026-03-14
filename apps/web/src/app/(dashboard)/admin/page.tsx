@@ -10,8 +10,9 @@ export default function AdminPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const token = localStorage.getItem('token') ?? '';
     blueprintsClient
-      .getAll()
+      .getAllAdmin(token)
       .then(setBlueprints)
       .catch(() => setError('Failed to load blueprints'))
       .finally(() => setLoading(false));
