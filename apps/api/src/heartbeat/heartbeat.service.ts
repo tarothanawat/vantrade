@@ -1,11 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import type { BlueprintParameters, IBrokerAdapter, OrderParams } from '@vantrade/types';
+import type {
+  BlueprintParameters,
+  BrokerCredentials,
+  IBrokerAdapter,
+  OrderParams,
+} from '@vantrade/types';
 import { BlueprintParametersSchema, OrderSide, TradeSignal } from '@vantrade/types';
 import { EncryptionService } from '../encryption/encryption.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TradeLogsRepository } from '../trade-logs/trade-logs.repository';
 import { SubscriptionsRepository } from '../subscriptions/subscriptions.repository';
-import { AlpacaAdapter } from '../trading/broker/alpaca.adapter';
 import { calculateRSI, generateSignal } from '../trading/trading.engine';
 
 type ActiveSubscription = Awaited<ReturnType<SubscriptionsRepository['findAllActive']>>[number];
@@ -17,8 +21,8 @@ export class HeartbeatService {
   constructor(
     @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter,
     private readonly subscriptionsRepo: SubscriptionsRepository,
+    private readonly tradeLogsRepo: TradeLogsRepository,
     private readonly encryptionService: EncryptionService,
-    private readonly prisma: PrismaService,
   ) {}
 
   @Cron('*/60 * * * * *')
@@ -27,27 +31,6 @@ export class HeartbeatService {
     const active = await this.subscriptionsRepo.findAllActive();
     this.logger.debug(`Processing ${active.length} active subscriptions`);
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
-  }
-
-  private async createTradeLog(
-    subId: string,
-    symbol: string,
-    side: string,
-    quantity: number,
-    price: number,
-    status: string,
-  ): Promise<void> {
-    await this.prisma.tradeLog.create({
-      data: {
-        subscriptionId: subId,
-        symbol,
-        side,
-        quantity,
-        price,
-        pnl: null,
-        status,
-      },
-    });
   }
 
   private async processSub(sub: ActiveSubscription): Promise<void> {
@@ -65,19 +48,16 @@ export class HeartbeatService {
         return;
       }
 
-      const apiKey = this.encryptionService.decrypt(user.apiKeys[0].encryptedKey);
-      const apiSecret = this.encryptionService.decrypt(user.apiKeys[0].encryptedSecret);
+      const credentials: BrokerCredentials = {
+        apiKey: this.encryptionService.decrypt(user.apiKeys[0].encryptedKey),
+        apiSecret: this.encryptionService.decrypt(user.apiKeys[0].encryptedSecret),
+      };
 
-      const currentPrice = await this.broker.getLatestPrice(params.symbol);
+      // Fetch enough bars for RSI: period + 1 data points minimum
+      const prices = await this.broker.getHistoricalPrices(params.symbol, params.rsiPeriod + 1);
+      const currentPrice = prices[prices.length - 1];
 
-      // A single data point is insufficient for RSI — hold until enough bars accumulate
-      const mockPriceSeries = [currentPrice];
-      if (mockPriceSeries.length < params.rsiPeriod + 1) {
-        this.logger.debug(`Not enough price data for RSI on ${params.symbol} — holding`);
-        return;
-      }
-
-      const rsi = calculateRSI(mockPriceSeries, params.rsiPeriod);
+      const rsi = calculateRSI(prices, params.rsiPeriod);
       const signal = generateSignal(rsi, params.rsiBuyThreshold, params.rsiSellThreshold);
 
       this.logger.debug(
@@ -85,14 +65,15 @@ export class HeartbeatService {
       );
 
       if (signal === TradeSignal.HOLD) {
-        await this.createTradeLog(
-          sub.id,
-          params.symbol,
-          TradeSignal.HOLD,
-          0,
-          currentPrice,
-          'signal_hold',
-        );
+        await this.tradeLogsRepo.create({
+          subscriptionId: sub.id,
+          symbol: params.symbol,
+          side: TradeSignal.HOLD,
+          quantity: 0,
+          price: currentPrice,
+          pnl: null,
+          status: 'signal_hold',
+        });
         return;
       }
 
@@ -103,17 +84,17 @@ export class HeartbeatService {
         accountId: user.id,
       };
 
-      const adapter = this.broker as AlpacaAdapter;
-      const result = await adapter.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
+      const result = await this.broker.placeOrder(orderParams, credentials);
 
-      await this.createTradeLog(
-        sub.id,
-        params.symbol,
-        signal,
-        params.quantity,
-        result.filledPrice,
-        result.status,
-      );
+      await this.tradeLogsRepo.create({
+        subscriptionId: sub.id,
+        symbol: params.symbol,
+        side: signal,
+        quantity: params.quantity,
+        price: result.filledPrice,
+        pnl: null,
+        status: result.status,
+      });
     } catch (err) {
       this.logger.error(`Error processing subscription ${sub.id}: ${(err as Error).message}`);
       // Do NOT rethrow — error isolation per subscription

@@ -1,6 +1,12 @@
 import Alpaca from '@alpacahq/alpaca-trade-api';
 import { Injectable, Logger } from '@nestjs/common';
-import type { IBrokerAdapter, OrderParams, OrderResult, Position } from '@vantrade/types';
+import type {
+  BrokerCredentials,
+  IBrokerAdapter,
+  OrderParams,
+  OrderResult,
+  Position,
+} from '@vantrade/types';
 import { OrderSide, OrderStatus } from '@vantrade/types';
 
 @Injectable()
@@ -16,37 +22,36 @@ export class AlpacaAdapter implements IBrokerAdapter {
     });
   }
 
-  async getLatestPrice(symbol: string): Promise<number> {
-    // Use system-level credentials for price checks (no trade execution)
+  async getHistoricalPrices(symbol: string, limit: number): Promise<number[]> {
     const client = this.buildClient(
       process.env.ALPACA_API_KEY ?? '',
       process.env.ALPACA_API_SECRET ?? '',
     );
 
-    const bars = await client.getBarsV2(symbol, {
+    const bars = client.getBarsV2(symbol, {
       timeframe: '1Min',
-      limit: 1,
+      limit,
     });
 
+    const prices: number[] = [];
     for await (const bar of bars) {
-      return bar.ClosePrice as number;
+      prices.push(bar.ClosePrice as number);
     }
 
-    throw new Error(`No price data returned for ${symbol}`);
+    if (prices.length === 0) {
+      throw new Error(`No price data returned for ${symbol}`);
+    }
+
+    return prices;
   }
 
-  async placeOrder(_params: OrderParams): Promise<OrderResult> {
-    throw new Error(
-      'AlpacaAdapter.placeOrder requires per-subscription credentials. Use placeOrderWithCredentials instead.',
-    );
+  async getLatestPrice(symbol: string): Promise<number> {
+    const prices = await this.getHistoricalPrices(symbol, 1);
+    return prices[prices.length - 1];
   }
 
-  async placeOrderWithCredentials(
-    params: OrderParams,
-    apiKey: string,
-    apiSecret: string,
-  ): Promise<OrderResult> {
-    const client = this.buildClient(apiKey, apiSecret);
+  async placeOrder(params: OrderParams, credentials: BrokerCredentials): Promise<OrderResult> {
+    const client = this.buildClient(credentials.apiKey, credentials.apiSecret);
 
     const order = await client.createOrder({
       symbol: params.symbol,
@@ -70,13 +75,9 @@ export class AlpacaAdapter implements IBrokerAdapter {
     };
   }
 
-  async getPositions(accountId: string): Promise<Position[]> {
-    this.logger.warn(`getPositions called with accountId=${accountId} — using system credentials`);
-
-    const client = this.buildClient(
-      process.env.ALPACA_API_KEY ?? '',
-      process.env.ALPACA_API_SECRET ?? '',
-    );
+  async getPositions(accountId: string, credentials: BrokerCredentials): Promise<Position[]> {
+    this.logger.debug(`Fetching positions for accountId=${accountId}`);
+    const client = this.buildClient(credentials.apiKey, credentials.apiSecret);
 
     const positions = await client.getPositions();
     return (positions as Array<Record<string, unknown>>).map((p) => ({
