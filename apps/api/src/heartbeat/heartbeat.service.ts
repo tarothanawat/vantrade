@@ -9,7 +9,7 @@ import type {
 } from '@vantrade/types';
 import { BlueprintParametersSchema, OrderSide, TradeSignal } from '@vantrade/types';
 import { EncryptionService } from '../encryption/encryption.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { TradeLogsRepository } from '../trade-logs/trade-logs.repository';
 import { SubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { calculateRSI, generateSignal } from '../trading/trading.engine';
 
@@ -23,8 +23,8 @@ export class HeartbeatService {
   constructor(
     @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter,
     private readonly subscriptionsRepo: SubscriptionsRepository,
+    private readonly tradeLogsRepo: TradeLogsRepository,
     private readonly encryptionService: EncryptionService,
-    private readonly prisma: PrismaService,
   ) {}
 
   @Cron('*/60 * * * * *')
@@ -252,14 +252,15 @@ export class HeartbeatService {
       const apiSecret = this.encryptionService.decrypt(user.apiKeys[0].encryptedSecret);
       const result = await this.broker.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
 
-      await this.createTradeLog(
-        sub.id,
-        params.symbol,
-        signal,
-        params.quantity,
-        result.filledPrice,
-        result.status,
-      );
+      await this.tradeLogsRepo.create({
+        subscriptionId: sub.id,
+        symbol: params.symbol,
+        side: signal,
+        quantity: params.quantity,
+        price: result.filledPrice,
+        pnl: null,
+        status: result.status,
+      });
     } catch (err) {
       this.logger.error(`Error processing subscription ${sub.id}: ${(err as Error).message}`);
       // Do NOT rethrow — error isolation per subscription

@@ -88,11 +88,15 @@ apps/api/src/
 │   ├── subscriptions.repository.ts
 │   └── subscriptions.module.ts
 │
+├── trade-logs/                        # Append-only trade log persistence
+│   ├── trade-logs.repository.ts       # ONLY file that writes TradeLog rows
+│   └── trade-logs.module.ts
+│
 ├── trading/                           # ★ Core trading logic — The "City Center"
 │   ├── trading.engine.ts              # Pure functions: RSI, MA, signal generation
 │   ├── trading.engine.test.ts         # Unit tests (co-located)
 │   └── broker/
-│       ├── IBrokerAdapter.ts          # THE PORT — interface only
+│       ├── IBrokerAdapter.ts          # THE PORT — interface only (re-exports from @vantrade/types)
 │       └── alpaca.adapter.ts          # THE ADAPTER — implements IBrokerAdapter
 │
 ├── heartbeat/                         # Autonomous execution loop
@@ -114,6 +118,8 @@ apps/api/src/
 **Contract:** No code outside `*.repository.ts` files may import Prisma's `db` client.
 **Contract:** No code outside `alpaca.adapter.ts` may import the Alpaca SDK.
 **Contract:** `trading.engine.ts` must only import from `packages/types` — never from infrastructure.
+**Contract:** `HeartbeatService` must inject `TradeLogsRepository` for all `TradeLog` writes — never `PrismaService` directly.
+**Contract:** `IBrokerAdapter` is the only type `HeartbeatService` may reference for broker calls — no casting to concrete adapter classes.
 
 ### `apps/web` — Next.js 14 Frontend
 
@@ -260,24 +266,28 @@ NestJS's DI container injects the concrete `AlpacaAdapter` — the engine never 
 
 ```typescript
 // packages/types/src/interfaces/IBrokerAdapter.ts  ← THE PORT
+export interface BrokerCredentials {
+  apiKey: string;
+  apiSecret: string;
+}
+
 export interface IBrokerAdapter {
+  /** Fetch the last `limit` close prices for RSI/MA calculation (oldest → newest). */
+  getHistoricalPrices(symbol: string, limit: number): Promise<number[]>;
+  /** Convenience wrapper — single most recent close price. */
   getLatestPrice(symbol: string): Promise<number>;
-  placeOrder(params: OrderParams): Promise<OrderResult>;
-  getPositions(accountId: string): Promise<Position[]>;
+  /** Place a market order using the caller-supplied per-user credentials. */
+  placeOrder(params: OrderParams, credentials: BrokerCredentials): Promise<OrderResult>;
+  /** Fetch open positions using the user's own credentials. */
+  getPositions(accountId: string, credentials: BrokerCredentials): Promise<Position[]>;
 }
 
 // apps/api/src/trading/broker/alpaca.adapter.ts  ← THE ADAPTER
 @Injectable()
 export class AlpacaAdapter implements IBrokerAdapter { ... }
-
-// apps/api/src/trading/trading.engine.ts  ← DOMAIN (depends on PORT only)
-@Injectable()
-export class TradingEngine {
-  constructor(
-    @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter
-  ) {}
-}
 ```
+
+**Rule:** `BrokerCredentials` are passed as arguments at call time — the adapter is a stateless singleton. Never store decrypted credentials on the adapter instance.
 
 To swap to a different broker, write a new `IBKRAdapter` and rebind `'IBrokerAdapter'` in the module — zero changes to domain logic.
 
@@ -379,11 +389,16 @@ remove(@Param('id') id: string, @Request() req: AuthRequest) {
 
 **Sequence (every 60 seconds):**
 1. Query all `Subscription` records where `isActive = true`.
-2. For each subscription, decrypt the user's `ApiKey` via `EncryptionService`.
-3. Call `IBrokerAdapter.getLatestPrice()` for the Blueprint's target symbol.
-4. Apply the Blueprint's logic via `TradingEngine` pure functions to generate a signal (`buy | sell | hold`).
-5. If signal is `buy` or `sell`, call `IBrokerAdapter.placeOrder()`.
-6. Persist the outcome as a new `TradeLog` record regardless of signal.
+2. For each subscription, decrypt the user's `ApiKey` via `EncryptionService` into `BrokerCredentials`.
+3. Call `IBrokerAdapter.getHistoricalPrices(symbol, rsiPeriod + 1)` to fetch enough bars for RSI.
+4. Apply `calculateRSI()` + `generateSignal()` pure functions to produce a signal (`buy | sell | hold`).
+5. If signal is `buy` or `sell`, call `IBrokerAdapter.placeOrder(params, credentials)` with the user's own credentials.
+6. Persist the outcome via `TradeLogsRepository` regardless of signal.
+
+**Critical invariants:**
+- `getHistoricalPrices` must return at least `rsiPeriod + 1` bars — fewer bars means RSI cannot be computed and the subscription is skipped with a warning.
+- Credentials are decrypted in-memory and never stored or logged.
+- `placeOrder` uses per-user credentials — never the system Alpaca account.
 
 **Error isolation:** A failure in one subscription must not stop processing of other subscriptions. Each subscription is wrapped in its own try/catch.
 
@@ -392,20 +407,25 @@ remove(@Param('id') id: string, @Request() req: AuthRequest) {
 @Injectable()
 export class HeartbeatService {
   constructor(
-    private readonly subscriptionsRepository: SubscriptionsRepository,
-    private readonly tradingEngine: TradingEngine,
+    @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter,
+    private readonly subscriptionsRepo: SubscriptionsRepository,
+    private readonly tradeLogsRepo: TradeLogsRepository,  // ← repository, NOT PrismaService
     private readonly encryptionService: EncryptionService,
   ) {}
 
   @Cron('*/60 * * * * *')
   async tick() {
-    const active = await this.subscriptionsRepository.findAllActive();
+    const active = await this.subscriptionsRepo.findAllActive();
     await Promise.allSettled(active.map(sub => this.processSub(sub)));
   }
 
-  private async processSub(sub: SubscriptionWithRelations) {
+  private async processSub(sub: ActiveSubscription) {
     try {
-      // decrypt → price → signal → order → log
+      const credentials: BrokerCredentials = {
+        apiKey: this.encryptionService.decrypt(sub.user.apiKeys[0].encryptedKey),
+        apiSecret: this.encryptionService.decrypt(sub.user.apiKeys[0].encryptedSecret),
+      };
+      // getHistoricalPrices (not getLatestPrice) → calculateRSI → generateSignal → placeOrder → tradeLogsRepo.create
     } catch (err) {
       // log error, continue — do NOT rethrow
     }
@@ -423,7 +443,8 @@ export class HeartbeatService {
 - [ ] User inputs sanitized with Zod — no raw SQL, no `eval()`.
 - [ ] RBAC checked on the server — never trust the client for role.
 - [ ] Trade logs are append-only (no UPDATE or DELETE on `TradeLog`).
-- [ ] Rate-limit the heartbeat API endpoint to prevent abuse.
+- [ ] Rate-limit public endpoints (`/auth/register`, `/auth/login`) to prevent abuse.
+- [ ] Registration always assigns `Role.TESTER` — role is never accepted from the request body. Privileged roles (PROVIDER, ADMIN) are assigned by an administrator only.
 
 ---
 

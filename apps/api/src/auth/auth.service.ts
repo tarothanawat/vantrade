@@ -24,7 +24,7 @@ export class AuthService {
     const user = await this.repo.create({
       email: dto.email,
       passwordHash,
-      role: dto.role ?? Role.TESTER,
+      role: Role.TESTER,
     });
 
     return this.buildTokenResponse(user);

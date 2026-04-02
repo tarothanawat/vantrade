@@ -26,6 +26,9 @@ export interface Position {
 }
 
 export interface IBrokerAdapter {
+  /** Fetch the last `limit` close prices for a symbol (oldest → newest). */
+  getHistoricalPrices(symbol: string, limit: number): Promise<number[]>;
+  /** Convenience wrapper — returns the single most recent close price. */
   getLatestPrice(symbol: string): Promise<number>;
   getRecentBars(symbol: string, timeframe: MarketDataTimeframe, limit: number): Promise<MarketBarDto[]>;
   placeOrder(params: OrderParams): Promise<OrderResult>;
