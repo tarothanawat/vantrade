@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { BlueprintsModule } from './blueprints/blueprints.module';
 import { EncryptionModule } from './encryption/encryption.module';
 import { HeartbeatModule } from './heartbeat/heartbeat.module';
+import { MarketDataModule } from './market-data/market-data.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { TradingModule } from './trading/trading.module';
@@ -18,6 +19,7 @@ import { TradingModule } from './trading/trading.module';
     BlueprintsModule,
     SubscriptionsModule,
     TradingModule,
+    MarketDataModule,
     HeartbeatModule,
     ApiKeysModule,
   ],

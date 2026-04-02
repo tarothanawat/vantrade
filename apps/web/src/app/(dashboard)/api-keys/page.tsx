@@ -32,7 +32,8 @@ export default function ApiKeysPage() {
     setError('');
     setSaveStatus('saving');
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const raw = {
       alpacaApiKey: formData.get('alpacaApiKey'),
       alpacaApiSecret: formData.get('alpacaApiSecret'),
@@ -49,7 +50,7 @@ export default function ApiKeysPage() {
       await apiKeysClient.upsert(parsed.data as ApiKeyCreateDto);
       setHasKey(true);
       setSaveStatus('saved');
-      event.currentTarget.reset();
+      form.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save API keys.');
       setSaveStatus('idle');

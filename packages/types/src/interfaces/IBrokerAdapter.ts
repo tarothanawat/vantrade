@@ -1,4 +1,5 @@
 import { OrderSide, OrderStatus } from '../enums';
+import type { MarketBarDto, MarketDataTimeframe } from '../schemas/market-data.schema';
 
 export interface OrderParams {
   symbol: string;
@@ -26,6 +27,12 @@ export interface Position {
 
 export interface IBrokerAdapter {
   getLatestPrice(symbol: string): Promise<number>;
+  getRecentBars(symbol: string, timeframe: MarketDataTimeframe, limit: number): Promise<MarketBarDto[]>;
   placeOrder(params: OrderParams): Promise<OrderResult>;
+  placeOrderWithCredentials(
+    params: OrderParams,
+    apiKey: string,
+    apiSecret: string,
+  ): Promise<OrderResult>;
   getPositions(accountId: string): Promise<Position[]>;
 }

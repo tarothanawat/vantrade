@@ -34,6 +34,7 @@ async function request<T>(
     ...options,
     headers,
     credentials: 'include',
+    cache: 'no-store',
   });
 
   if (!res.ok) {

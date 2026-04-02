@@ -3,7 +3,7 @@ import { BlueprintResponseSchema } from './blueprint.schema';
 import { TradeLogSchema } from './trade-log.schema';
 
 export const SubscriptionCreateSchema = z.object({
-  blueprintId: z.string().cuid(),
+  blueprintId: z.string().min(1),
 });
 
 export const SubscriptionToggleSchema = z.object({

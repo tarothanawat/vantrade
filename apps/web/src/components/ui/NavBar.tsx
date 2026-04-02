@@ -12,7 +12,10 @@ export default function NavBar() {
   const { user, logout } = useSession();
 
   const navLinks = useMemo(() => {
-    const baseLinks = [{ href: '/marketplace', label: 'Marketplace' }];
+    const baseLinks = [
+      { href: '/marketplace', label: 'Marketplace' },
+      { href: '/market-data', label: 'Market Data' },
+    ];
 
     if (user?.role === Role.TESTER) {
       return [

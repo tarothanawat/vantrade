@@ -8,10 +8,16 @@ interface Props {
 export default function BlueprintCard({ blueprint }: Props) {
   const params = blueprint.parameters as {
     symbol: string;
+    executionMode?: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
     rsiPeriod: number;
     rsiBuyThreshold: number;
     rsiSellThreshold: number;
   };
+
+  const executionModeLabel =
+    params.executionMode === 'SELL_HIGH_BUY_LOW'
+      ? 'Sell high → Buy low'
+      : 'Buy low → Sell high';
 
   return (
     <div className="flex flex-col rounded-2xl border border-gray-800 bg-gray-900 p-6 hover:border-indigo-700 transition-colors">
@@ -32,6 +38,7 @@ export default function BlueprintCard({ blueprint }: Props) {
       <div className="mb-4 grid grid-cols-2 gap-2 text-xs text-gray-500">
         <div>RSI Period: <span className="text-gray-300">{params.rsiPeriod}</span></div>
         <div>Buy &lt; <span className="text-emerald-400">{params.rsiBuyThreshold}</span></div>
+        <div className="col-span-2">Mode: <span className="text-indigo-300">{executionModeLabel}</span></div>
         <div>Sell &gt; <span className="text-red-400">{params.rsiSellThreshold}</span></div>
       </div>
 

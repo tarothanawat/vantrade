@@ -1,7 +1,15 @@
 import { z } from 'zod';
+import { MarketDataTimeframeSchema } from './market-data.schema';
+
+export const BlueprintExecutionModeSchema = z.enum([
+  'BUY_LOW_SELL_HIGH',
+  'SELL_HIGH_BUY_LOW',
+]);
 
 export const BlueprintParametersSchema = z.object({
   symbol: z.string().min(1).max(10).toUpperCase(),
+  executionTimeframe: MarketDataTimeframeSchema.default('1Min'),
+  executionMode: BlueprintExecutionModeSchema.default('BUY_LOW_SELL_HIGH'),
   rsiPeriod: z.number().int().min(2).max(100),
   rsiBuyThreshold: z.number().min(0).max(100),
   rsiSellThreshold: z.number().min(0).max(100),
