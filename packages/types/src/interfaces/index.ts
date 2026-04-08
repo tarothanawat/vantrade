@@ -26,6 +26,8 @@ export interface Blueprint {
 
 export interface BlueprintParameters {
   symbol: string;
+  executionTimeframe?: '1Min' | '5Min' | '15Min' | '1Hour' | '1Day';
+  executionMode?: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
   rsiPeriod: number;
   rsiBuyThreshold: number;
   rsiSellThreshold: number;

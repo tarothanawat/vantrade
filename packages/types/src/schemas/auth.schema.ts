@@ -19,6 +19,15 @@ export const AuthResponseSchema = z.object({
   }),
 });
 
+export const AuthMeResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    role: z.nativeEnum(Role),
+  }),
+});
+
 export type RegisterDto = z.infer<typeof RegisterSchema>;
 export type LoginDto = z.infer<typeof LoginSchema>;
 export type AuthResponseDto = z.infer<typeof AuthResponseSchema>;
+export type AuthMeResponseDto = z.infer<typeof AuthMeResponseSchema>;

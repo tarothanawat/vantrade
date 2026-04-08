@@ -1,16 +1,20 @@
 import {
     Body,
     Controller,
+    Get,
     HttpCode,
     HttpStatus,
     Post,
+    Request,
     Res,
+    UseGuards,
     UsePipes,
 } from '@nestjs/common';
-import type { LoginDto, RegisterDto } from '@vantrade/types';
+import type { AuthRequest, LoginDto, RegisterDto } from '@vantrade/types';
 import { LoginSchema, RegisterSchema } from '@vantrade/types';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 const AUTH_COOKIE_NAME = 'vantrade_auth';
 
@@ -64,5 +68,17 @@ export class AuthController {
   logout(@Res({ passthrough: true }) res: CookieResponse) {
     clearAuthCookie(res);
     return { message: 'Logged out' };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  me(@Request() req: AuthRequest) {
+    return {
+      user: {
+        id: req.user.sub,
+        email: req.user.email,
+        role: req.user.role,
+      },
+    };
   }
 }

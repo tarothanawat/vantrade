@@ -29,6 +29,8 @@ export default async function BlueprintDetailPage({ params }: Props) {
 
   const params2 = blueprint.parameters as {
     symbol: string;
+    executionTimeframe?: '1Min' | '5Min' | '15Min' | '1Hour' | '1Day';
+    executionMode?: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
     rsiPeriod: number;
     rsiBuyThreshold: number;
     rsiSellThreshold: number;
@@ -54,6 +56,8 @@ export default async function BlueprintDetailPage({ params }: Props) {
 
         <div className="mb-6 grid grid-cols-2 gap-4 rounded-xl bg-gray-800 p-4 text-sm">
           <div><span className="text-gray-500">Symbol</span><p className="mt-1 font-semibold text-white">{params2.symbol}</p></div>
+          <div><span className="text-gray-500">Execution Timeframe</span><p className="mt-1 font-semibold text-white">{params2.executionTimeframe ?? '1Min'}</p></div>
+          <div><span className="text-gray-500">Execution Mode</span><p className="mt-1 font-semibold text-white">{params2.executionMode === 'SELL_HIGH_BUY_LOW' ? 'Sell high → Buy low' : 'Buy low → Sell high'}</p></div>
           <div><span className="text-gray-500">RSI Period</span><p className="mt-1 font-semibold text-white">{params2.rsiPeriod}</p></div>
           <div><span className="text-gray-500">Buy Threshold (RSI &lt;)</span><p className="mt-1 font-semibold text-emerald-400">{params2.rsiBuyThreshold}</p></div>
           <div><span className="text-gray-500">Sell Threshold (RSI &gt;)</span><p className="mt-1 font-semibold text-red-400">{params2.rsiSellThreshold}</p></div>

@@ -1,39 +1,21 @@
 'use client';
 
-import { authClient } from '@/lib/api-client/auth.client';
+import { useSession } from '@/components/providers/SessionProvider';
 import { Role } from '@vantrade/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-
-type UserSession = {
-  id?: string;
-  email?: string;
-  role?: Role;
-};
+import { useMemo } from 'react';
 
 export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<UserSession | null>(null);
-
-  useEffect(() => {
-    const rawUser = localStorage.getItem('user');
-    if (!rawUser) {
-      setUser(null);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(rawUser) as UserSession;
-      setUser(parsed);
-    } catch {
-      setUser(null);
-    }
-  }, [pathname]);
+  const { user, logout } = useSession();
 
   const navLinks = useMemo(() => {
-    const baseLinks = [{ href: '/marketplace', label: 'Marketplace' }];
+    const baseLinks = [
+      { href: '/marketplace', label: 'Marketplace' },
+      { href: '/market-data', label: 'Market Data' },
+    ];
 
     if (user?.role === Role.TESTER) {
       return [
@@ -55,14 +37,7 @@ export default function NavBar() {
   }, [user?.role]);
 
   async function handleLogout() {
-    try {
-      await authClient.logout();
-    } catch {
-      // best-effort logout; continue local cleanup
-    }
-
-    localStorage.removeItem('user');
-    setUser(null);
+    await logout();
     router.push('/auth/login');
   }
 

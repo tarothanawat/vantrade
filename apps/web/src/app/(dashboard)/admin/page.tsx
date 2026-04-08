@@ -10,18 +10,16 @@ export default function AdminPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token') ?? '';
     blueprintsClient
-      .getAllAdmin(token)
+      .getAllAdmin()
       .then(setBlueprints)
       .catch(() => setError('Failed to load blueprints'))
       .finally(() => setLoading(false));
   }, []);
 
   async function handleVerify(id: string, verified: boolean) {
-    const token = localStorage.getItem('token') ?? '';
     try {
-      const updated = await blueprintsClient.verify(id, verified, token);
+      const updated = await blueprintsClient.verify(id, verified);
       setBlueprints((prev: Blueprint[]) =>
         prev.map((bp) => (bp.id === id ? { ...bp, isVerified: updated.isVerified } : bp)),
       );

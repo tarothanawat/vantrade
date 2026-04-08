@@ -1,6 +1,7 @@
 'use client';
 
 import { apiKeysClient } from '@/lib/api-client/api-keys.client';
+import { ApiError } from '@/lib/api-client/base';
 import { ApiKeyCreateSchema, type ApiKeyCreateDto } from '@vantrade/types';
 import { useEffect, useState } from 'react';
 
@@ -13,18 +14,16 @@ export default function ApiKeysPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token') ?? '';
-
-    if (!token) {
-      setError('Please sign in to manage API keys.');
-      setLoading(false);
-      return;
-    }
-
     apiKeysClient
-      .hasKey(token)
+      .hasKey()
       .then(setHasKey)
-      .catch(() => setError('Failed to load API key status.'))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          setError('Please sign in to manage API keys.');
+          return;
+        }
+        setError('Failed to load API key status.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -33,7 +32,8 @@ export default function ApiKeysPage() {
     setError('');
     setSaveStatus('saving');
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const raw = {
       alpacaApiKey: formData.get('alpacaApiKey'),
       alpacaApiSecret: formData.get('alpacaApiSecret'),
@@ -46,13 +46,11 @@ export default function ApiKeysPage() {
       return;
     }
 
-    const token = localStorage.getItem('token') ?? '';
-
     try {
-      await apiKeysClient.upsert(parsed.data as ApiKeyCreateDto, token);
+      await apiKeysClient.upsert(parsed.data as ApiKeyCreateDto);
       setHasKey(true);
       setSaveStatus('saved');
-      event.currentTarget.reset();
+      form.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save API keys.');
       setSaveStatus('idle');
@@ -61,10 +59,9 @@ export default function ApiKeysPage() {
 
   async function handleDelete() {
     setError('');
-    const token = localStorage.getItem('token') ?? '';
 
     try {
-      await apiKeysClient.remove(token);
+      await apiKeysClient.remove();
       setHasKey(false);
       setSaveStatus('idle');
     } catch (err) {

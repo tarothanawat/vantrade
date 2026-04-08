@@ -33,18 +33,20 @@ Reference: `docs/SRS.md`
 
 ## Newly Implemented in this pass
 
-1. API auth now issues JWT in secure HttpOnly cookie (`vantrade_auth`) on register/login.
-2. API now supports explicit logout endpoint that clears auth cookie.
-3. JWT strategy now authenticates via bearer token **or** auth cookie.
-4. Web API requests now always send credentials (`credentials: 'include'`).
-5. Web auth pages no longer persist JWT in localStorage.
-6. Navbar logout now calls API logout endpoint for server-side cookie invalidation.
+1. Introduced centralized session state management via `SessionProvider` + `useSession` hook.
+2. Wrapped root app layout with session provider to make auth state available globally.
+3. Refactored `NavBar`, auth pages, and subscribe flow to consume centralized session context.
+4. Removed remaining direct localStorage session dependencies in web UI.
+5. Cookie-auth + `/auth/me` now drive runtime role-aware UI behavior consistently.
 
 ## Next Priority Implementation Items
 
-1. **Auth Session UX Hardening (optional MVP+)**
-   - Add `/auth/me` endpoint + startup session hydration to avoid relying on localStorage `user` for role-aware navbar state.
+1. **Route Protection UX (optional MVP+)**
+   - Add client-side guards/redirect helpers for role-restricted pages to improve unauthorized navigation experience.
+2. **Session-Aware Data Layer (optional MVP+)**
+   - Standardize 401 handling and auto-redirect behavior in one shared utility.
 
 ## Suggested Order (Next Sprint)
 
-1. Session hydration (`/auth/me`) and user state provider
+1. Route guard helpers
+2. Shared 401 redirect strategy

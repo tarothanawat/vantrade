@@ -1,9 +1,5 @@
 import { OrderSide, OrderStatus } from '../enums';
-
-export interface BrokerCredentials {
-  apiKey: string;
-  apiSecret: string;
-}
+import type { MarketBarDto, MarketDataTimeframe } from '../schemas/market-data.schema';
 
 export interface OrderParams {
   symbol: string;
@@ -34,8 +30,12 @@ export interface IBrokerAdapter {
   getHistoricalPrices(symbol: string, limit: number): Promise<number[]>;
   /** Convenience wrapper — returns the single most recent close price. */
   getLatestPrice(symbol: string): Promise<number>;
-  /** Place a market order using the caller-supplied per-user credentials. */
-  placeOrder(params: OrderParams, credentials: BrokerCredentials): Promise<OrderResult>;
-  /** Fetch open positions for a user using their own credentials. */
-  getPositions(accountId: string, credentials: BrokerCredentials): Promise<Position[]>;
+  getRecentBars(symbol: string, timeframe: MarketDataTimeframe, limit: number): Promise<MarketBarDto[]>;
+  placeOrder(params: OrderParams): Promise<OrderResult>;
+  placeOrderWithCredentials(
+    params: OrderParams,
+    apiKey: string,
+    apiSecret: string,
+  ): Promise<OrderResult>;
+  getPositions(accountId: string): Promise<Position[]>;
 }

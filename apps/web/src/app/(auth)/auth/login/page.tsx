@@ -1,5 +1,6 @@
 'use client';
 
+import { useSession } from '@/components/providers/SessionProvider';
 import { authClient } from '@/lib/api-client/auth.client';
 import type { LoginDto } from '@vantrade/types';
 import { LoginSchema } from '@vantrade/types';
@@ -9,6 +10,7 @@ import { useState } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setSessionUser } = useSession();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +31,7 @@ export default function LoginPage() {
 
     try {
       const response = await authClient.login(parsed.data as LoginDto);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      setSessionUser(response.user);
       router.push('/marketplace');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
