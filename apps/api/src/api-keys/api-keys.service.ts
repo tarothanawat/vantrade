@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { ApiKeyCreateDto } from '@vantrade/types';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { ApiKeyCreateDto, IBrokerAdapter } from '@vantrade/types';
 import { EncryptionService } from '../encryption/encryption.service';
 import { ApiKeysRepository } from './api-keys.repository';
 
@@ -8,6 +8,7 @@ export class ApiKeysService {
   constructor(
     private readonly repo: ApiKeysRepository,
     private readonly encryption: EncryptionService,
+    @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter,
   ) {}
 
   async upsert(dto: ApiKeyCreateDto, userId: string) {
@@ -28,5 +29,15 @@ export class ApiKeysService {
     if (!key) throw new NotFoundException('No API key found');
     await this.repo.delete(userId);
     return { message: 'API key removed' };
+  }
+
+  async verify(userId: string): Promise<{ valid: boolean }> {
+    const key = await this.repo.findByUser(userId);
+    if (!key) throw new NotFoundException('No API key found');
+
+    const apiKey = this.encryption.decrypt(key.encryptedKey);
+    const apiSecret = this.encryption.decrypt(key.encryptedSecret);
+    const valid = await this.broker.verifyCredentials(apiKey, apiSecret);
+    return { valid };
   }
 }

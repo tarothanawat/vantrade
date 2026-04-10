@@ -37,4 +37,9 @@ export class ApiKeysController {
   remove(@Request() req: AuthRequest) {
     return this.apiKeysService.remove(req.user.sub);
   }
+
+  @Post('verify')
+  verify(@Request() req: AuthRequest) {
+    return this.apiKeysService.verify(req.user.sub);
+  }
 }
