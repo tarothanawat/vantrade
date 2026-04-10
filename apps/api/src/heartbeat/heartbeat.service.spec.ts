@@ -64,6 +64,8 @@ describe('HeartbeatService', () => {
     getLatestPrice: jest.Mock;
     placeOrder: jest.Mock;
     getPositions: jest.Mock;
+    getPositionsWithCredentials: jest.Mock;
+    verifyCredentials: jest.Mock;
   };
   let mockSubsRepo: jest.Mocked<Pick<SubscriptionsRepository, 'findAllActive'>>;
   let mockTradeLogsRepo: jest.Mocked<Pick<TradeLogsRepository, 'create' | 'findLatestTradeSideBySubscription'>>;
@@ -77,6 +79,8 @@ describe('HeartbeatService', () => {
       getLatestPrice: jest.fn(),
       placeOrder: jest.fn(),
       getPositions: jest.fn(),
+      getPositionsWithCredentials: jest.fn(),
+      verifyCredentials: jest.fn(),
     };
 
     mockSubsRepo = { findAllActive: jest.fn() };
@@ -99,6 +103,42 @@ describe('HeartbeatService', () => {
     }).compile();
 
     service = module.get<HeartbeatService>(HeartbeatService);
+  });
+
+  describe('getStatus()', () => {
+    it('returns null lastRunAt and nextRunAt before the first tick', () => {
+      const status = service.getStatus();
+      expect(status.lastRunAt).toBeNull();
+      expect(status.nextRunAt).toBeNull();
+      expect(status.lastActiveCount).toBe(0);
+    });
+
+    it('returns lastRunAt, nextRunAt 60s later, and activeCount after a tick', async () => {
+      mockSubsRepo.findAllActive.mockResolvedValue([makeSub() as never]);
+      mockBroker.getRecentBars.mockResolvedValue(HOLD_BARS);
+
+      const before = Date.now();
+      await service.tick();
+      const after = Date.now();
+
+      const status = service.getStatus();
+      expect(status.lastRunAt).toBeInstanceOf(Date);
+      expect(status.lastRunAt!.getTime()).toBeGreaterThanOrEqual(before);
+      expect(status.lastRunAt!.getTime()).toBeLessThanOrEqual(after);
+      expect(status.nextRunAt!.getTime()).toBeCloseTo(status.lastRunAt!.getTime() + 60_000, -2);
+      expect(status.lastActiveCount).toBe(1);
+    });
+
+    it('updates lastActiveCount on each tick', async () => {
+      mockSubsRepo.findAllActive.mockResolvedValue([]);
+      await service.tick();
+      expect(service.getStatus().lastActiveCount).toBe(0);
+
+      mockSubsRepo.findAllActive.mockResolvedValue([makeSub() as never, makeSub() as never]);
+      mockBroker.getRecentBars.mockResolvedValue(HOLD_BARS);
+      await service.tick();
+      expect(service.getStatus().lastActiveCount).toBe(2);
+    });
   });
 
   describe('tick()', () => {

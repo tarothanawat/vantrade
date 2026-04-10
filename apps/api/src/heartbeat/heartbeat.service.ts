@@ -19,6 +19,8 @@ type ActiveSubscription = Awaited<ReturnType<SubscriptionsRepository['findAllAct
 export class HeartbeatService {
   private readonly logger = new Logger(HeartbeatService.name);
   private readonly usMarketTimezone = 'America/New_York';
+  private lastRunAt: Date | null = null;
+  private lastActiveCount = 0;
 
   constructor(
     @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter,
@@ -27,10 +29,20 @@ export class HeartbeatService {
     private readonly encryptionService: EncryptionService,
   ) {}
 
+  getStatus() {
+    return {
+      lastRunAt: this.lastRunAt,
+      nextRunAt: this.lastRunAt ? new Date(this.lastRunAt.getTime() + 60_000) : null,
+      lastActiveCount: this.lastActiveCount,
+    };
+  }
+
   @Cron('*/60 * * * * *')
   async tick(): Promise<void> {
     this.logger.debug('Heartbeat tick started');
     const active = await this.subscriptionsRepo.findAllActive();
+    this.lastActiveCount = active.length;
+    this.lastRunAt = new Date();
     this.logger.debug(`Processing ${active.length} active subscriptions`);
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
   }
