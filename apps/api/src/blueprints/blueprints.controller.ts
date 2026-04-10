@@ -95,4 +95,10 @@ export class BlueprintsController {
   findAllAdmin() {
     return this.blueprintsService.findAll();
   }
+
+  // PUBLIC — dry-run: show what signal this blueprint would generate right now
+  @Get(':id/signal')
+  getDryRunSignal(@Param('id') id: string) {
+    return this.blueprintsService.getDryRunSignal(id);
+  }
 }
