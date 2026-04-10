@@ -408,7 +408,27 @@ export class AlpacaAdapter implements IBrokerAdapter {
       process.env.ALPACA_API_SECRET ?? '',
     );
     const positions = await client.getPositions();
-    return (positions as Array<Record<string, unknown>>).map((p) => ({
+    return this.mapPositions(positions as Array<Record<string, unknown>>);
+  }
+
+  async getPositionsWithCredentials(apiKey: string, apiSecret: string): Promise<Position[]> {
+    const client = this.buildClient(apiKey, apiSecret);
+    const positions = await client.getPositions();
+    return this.mapPositions(positions as Array<Record<string, unknown>>);
+  }
+
+  async verifyCredentials(apiKey: string, apiSecret: string): Promise<boolean> {
+    try {
+      const client = this.buildClient(apiKey, apiSecret);
+      await client.getAccount();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private mapPositions(raw: Array<Record<string, unknown>>): Position[] {
+    return raw.map((p) => ({
       symbol: p['symbol'] as string,
       quantity: Number(p['qty']),
       averageEntryPrice: Number(p['avg_entry_price']),

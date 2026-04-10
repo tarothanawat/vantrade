@@ -37,5 +37,10 @@ export interface IBrokerAdapter {
     apiKey: string,
     apiSecret: string,
   ): Promise<OrderResult>;
+  /** Fetch open positions using system-level credentials. */
   getPositions(accountId: string): Promise<Position[]>;
+  /** Fetch open positions using per-user credentials. */
+  getPositionsWithCredentials(apiKey: string, apiSecret: string): Promise<Position[]>;
+  /** Returns true if the supplied credentials can authenticate with the broker. */
+  verifyCredentials(apiKey: string, apiSecret: string): Promise<boolean>;
 }

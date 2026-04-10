@@ -48,11 +48,19 @@ export class SubscriptionsService {
     return this.repo.setActive(id, isActive);
   }
 
-  async findTradeLogsBySubscription(subId: string, userId: string) {
+  async findTradeLogsBySubscription(subId: string, userId: string, take?: number, skip?: number) {
     const sub = await this.repo.findById(subId);
     if (!sub) throw new NotFoundException('Subscription not found');
     if (sub.userId !== userId) throw new ForbiddenException('Not your subscription');
 
-    return this.tradeLogsRepo.findBySubscription(subId);
+    return this.tradeLogsRepo.findBySubscription(subId, take, skip);
+  }
+
+  async getStats(subId: string, userId: string) {
+    const sub = await this.repo.findById(subId);
+    if (!sub) throw new NotFoundException('Subscription not found');
+    if (sub.userId !== userId) throw new ForbiddenException('Not your subscription');
+
+    return this.tradeLogsRepo.getStats(subId);
   }
 }

@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
   UseGuards,
   UsePipes,
@@ -58,7 +59,22 @@ export class SubscriptionsController {
   }
 
   @Get(':id/trade-logs')
-  findTradeLogs(@Param('id') id: string, @Request() req: AuthRequest) {
-    return this.subscriptionsService.findTradeLogsBySubscription(id, req.user.sub);
+  findTradeLogs(
+    @Param('id') id: string,
+    @Request() req: AuthRequest,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    return this.subscriptionsService.findTradeLogsBySubscription(
+      id,
+      req.user.sub,
+      take !== undefined ? Number(take) : undefined,
+      skip !== undefined ? Number(skip) : undefined,
+    );
+  }
+
+  @Get(':id/stats')
+  getStats(@Param('id') id: string, @Request() req: AuthRequest) {
+    return this.subscriptionsService.getStats(id, req.user.sub);
   }
 }
