@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Role } from '../enums';
 
 export const RegisterSchema = z.object({
   email: z.string().email(),
