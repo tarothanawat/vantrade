@@ -25,9 +25,29 @@
     "tailwindcss": "^3.4.4",
     "postcss": "^8.4.38",
     "autoprefixer": "^10.4.19",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^16.0.0",
     "@types/jest": "^29.5.12",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "ts-jest": "^29.1.4"
+  },
+  "jest": {
+    "rootDir": ".",
+    "testEnvironment": "jsdom",
+    "testRegex": ".*\\.spec\\.tsx?$",
+    "transform": {
+      "^.+\\.(t|j)sx?$": ["ts-jest", {
+        "tsconfig": {
+          "jsx": "react-jsx",
+          "moduleResolution": "node"
+        }
+      }]
+    },
+    "moduleNameMapper": {
+      "^@vantrade/types$": "<rootDir>/../../packages/types/src/index.ts",
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "setupFilesAfterEnv": ["@testing-library/jest-dom"]
   }
 }

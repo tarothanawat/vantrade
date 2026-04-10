@@ -57,7 +57,7 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^@vantrade/types$": "<rootDir>/../../packages/types/src/index.ts"
+      "^@vantrade/types$": "<rootDir>/../../../packages/types/src/index.ts"
     }
   }
 }
