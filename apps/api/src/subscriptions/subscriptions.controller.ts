@@ -56,4 +56,9 @@ export class SubscriptionsController {
   remove(@Param('id') id: string, @Request() req: AuthRequest) {
     return this.subscriptionsService.remove(id, req.user.sub);
   }
+
+  @Get(':id/trade-logs')
+  findTradeLogs(@Param('id') id: string, @Request() req: AuthRequest) {
+    return this.subscriptionsService.findTradeLogsBySubscription(id, req.user.sub);
+  }
 }

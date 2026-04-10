@@ -338,17 +338,17 @@ export class AlpacaAdapter implements IBrokerAdapter {
     return this.fetchStockBars(normalized, timeframe, limit);
   }
 
-    return prices;
+  async getHistoricalPrices(symbol: string, limit: number): Promise<number[]> {
+    const bars = await this.getRecentBars(symbol, '1Min', limit);
+    return bars.map((bar) => bar.close);
   }
 
-  async getLatestPrice(symbol: string): Promise<number> {
-    const prices = await this.getHistoricalPrices(symbol, 1);
-    return prices[prices.length - 1];
-  }
-
-  async placeOrder(params: OrderParams, credentials: BrokerCredentials): Promise<OrderResult> {
-    const client = this.buildClient(credentials.apiKey, credentials.apiSecret);
-
+  async placeOrderWithCredentials(
+    params: OrderParams,
+    apiKey: string,
+    apiSecret: string,
+  ): Promise<OrderResult> {
+    const client = this.buildClient(apiKey, apiSecret);
     const symbolCandidates = this.getSymbolCandidates(params.symbol);
     let order: Record<string, unknown> | null = null;
     let placedSymbol = params.symbol;
@@ -393,10 +393,20 @@ export class AlpacaAdapter implements IBrokerAdapter {
     };
   }
 
-  async getPositions(accountId: string, credentials: BrokerCredentials): Promise<Position[]> {
-    this.logger.debug(`Fetching positions for accountId=${accountId}`);
-    const client = this.buildClient(credentials.apiKey, credentials.apiSecret);
+  async placeOrder(params: OrderParams): Promise<OrderResult> {
+    return this.placeOrderWithCredentials(
+      params,
+      process.env.ALPACA_API_KEY ?? '',
+      process.env.ALPACA_API_SECRET ?? '',
+    );
+  }
 
+  async getPositions(accountId: string): Promise<Position[]> {
+    this.logger.debug(`Fetching positions for accountId=${accountId}`);
+    const client = this.buildClient(
+      process.env.ALPACA_API_KEY ?? '',
+      process.env.ALPACA_API_SECRET ?? '',
+    );
     const positions = await client.getPositions();
     return (positions as Array<Record<string, unknown>>).map((p) => ({
       symbol: p['symbol'] as string,

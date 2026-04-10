@@ -35,27 +35,6 @@ export class HeartbeatService {
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
   }
 
-  private async createTradeLog(
-    subId: string,
-    symbol: string,
-    side: string,
-    quantity: number,
-    price: number,
-    status: string,
-  ): Promise<void> {
-    await this.prisma.tradeLog.create({
-      data: {
-        subscriptionId: subId,
-        symbol,
-        side,
-        quantity,
-        price,
-        pnl: null,
-        status,
-      },
-    });
-  }
-
   private isTwentyFourSevenSymbol(symbol: string): boolean {
     const normalized = symbol.trim().toUpperCase();
     return normalized.endsWith('USD') || normalized.endsWith('USDT');
@@ -122,21 +101,7 @@ export class HeartbeatService {
   }
 
   private async getLastTradeSide(subscriptionId: string): Promise<OrderSide | null> {
-    const latest = await this.prisma.tradeLog.findFirst({
-      where: {
-        subscriptionId,
-        side: {
-          in: [OrderSide.BUY, OrderSide.SELL],
-        },
-      },
-      orderBy: {
-        executedAt: 'desc',
-      },
-      select: {
-        side: true,
-      },
-    });
-
+    const latest = await this.tradeLogsRepo.findLatestTradeSideBySubscription(subscriptionId);
     if (!latest) return null;
     if (latest.side === OrderSide.BUY || latest.side === OrderSide.SELL) return latest.side;
     return null;
@@ -218,26 +183,28 @@ export class HeartbeatService {
       );
 
       if (signal === TradeSignal.HOLD || signalSide === null) {
-        await this.createTradeLog(
-          sub.id,
-          params.symbol,
-          TradeSignal.HOLD,
-          0,
-          currentPrice,
-          'signal_hold',
-        );
+        await this.tradeLogsRepo.create({
+          subscriptionId: sub.id,
+          symbol: params.symbol,
+          side: TradeSignal.HOLD,
+          quantity: 0,
+          price: currentPrice,
+          pnl: null,
+          status: 'signal_hold',
+        });
         return;
       }
 
       if (signalSide !== expectedNextSide) {
-        await this.createTradeLog(
-          sub.id,
-          params.symbol,
-          TradeSignal.HOLD,
-          0,
-          currentPrice,
-          `signal_${signal}_waiting_${expectedNextSide}`,
-        );
+        await this.tradeLogsRepo.create({
+          subscriptionId: sub.id,
+          symbol: params.symbol,
+          side: TradeSignal.HOLD,
+          quantity: 0,
+          price: currentPrice,
+          pnl: null,
+          status: `signal_${signal}_waiting_${expectedNextSide}`,
+        });
         return;
       }
 

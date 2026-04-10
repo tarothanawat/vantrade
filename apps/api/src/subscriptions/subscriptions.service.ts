@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { SubscriptionCreateDto } from '@vantrade/types';
 import { BlueprintsRepository } from '../blueprints/blueprints.repository';
+import { TradeLogsRepository } from '../trade-logs/trade-logs.repository';
 import { SubscriptionsRepository } from './subscriptions.repository';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class SubscriptionsService {
   constructor(
     private readonly repo: SubscriptionsRepository,
     private readonly blueprintsRepo: BlueprintsRepository,
+    private readonly tradeLogsRepo: TradeLogsRepository,
   ) {}
 
   findByUser(userId: string) {
@@ -44,5 +46,13 @@ export class SubscriptionsService {
     if (sub.userId !== userId) throw new ForbiddenException('Not your subscription');
 
     return this.repo.setActive(id, isActive);
+  }
+
+  async findTradeLogsBySubscription(subId: string, userId: string) {
+    const sub = await this.repo.findById(subId);
+    if (!sub) throw new NotFoundException('Subscription not found');
+    if (sub.userId !== userId) throw new ForbiddenException('Not your subscription');
+
+    return this.tradeLogsRepo.findBySubscription(subId);
   }
 }

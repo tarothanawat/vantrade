@@ -1,5 +1,5 @@
 import { TradeSignal } from '@vantrade/types';
-import { calculateRSI, calculateSMA, generateSignal } from './trading.engine';
+import { calculatePnL, calculateRSI, calculateSMA, calculateUnrealisedPnL, generateSignal } from './trading.engine';
 
 describe('calculateRSI', () => {
   it('throws when not enough data points', () => {
@@ -60,5 +60,41 @@ describe('generateSignal', () => {
 
   it('returns SELL when RSI equals the sell threshold', () => {
     expect(generateSignal(70, 30, 70)).toBe(TradeSignal.SELL);
+  });
+});
+
+describe('calculatePnL', () => {
+  it('returns positive PnL for a profitable buy position', () => {
+    expect(calculatePnL(100, 120, 10, 'buy')).toBeCloseTo(200);
+  });
+
+  it('returns negative PnL for a losing buy position', () => {
+    expect(calculatePnL(100, 80, 10, 'buy')).toBeCloseTo(-200);
+  });
+
+  it('returns positive PnL for a profitable sell position', () => {
+    expect(calculatePnL(120, 100, 10, 'sell')).toBeCloseTo(200);
+  });
+
+  it('returns negative PnL for a losing sell position', () => {
+    expect(calculatePnL(80, 100, 10, 'sell')).toBeCloseTo(-200);
+  });
+
+  it('returns 0 when entry and exit prices are equal', () => {
+    expect(calculatePnL(100, 100, 5, 'buy')).toBeCloseTo(0);
+  });
+});
+
+describe('calculateUnrealisedPnL', () => {
+  it('returns positive unrealised PnL when price has risen', () => {
+    expect(calculateUnrealisedPnL(100, 115, 10)).toBeCloseTo(150);
+  });
+
+  it('returns negative unrealised PnL when price has fallen', () => {
+    expect(calculateUnrealisedPnL(100, 90, 10)).toBeCloseTo(-100);
+  });
+
+  it('returns 0 when current price equals entry price', () => {
+    expect(calculateUnrealisedPnL(100, 100, 10)).toBeCloseTo(0);
   });
 });
