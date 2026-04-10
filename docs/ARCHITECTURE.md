@@ -1,178 +1,358 @@
-# VanTrade — Architecture Summary
+# VanTrade Architecture Summary
 
-## What It Is
-
-VanTrade is a multi-tenant algorithmic trading marketplace. Strategy **Providers** publish parameterized trading Blueprints. Strategy **Testers** subscribe to Blueprints and the platform automatically executes them against their personal Alpaca paper trading accounts on a recurring schedule. **Admins** verify Blueprints before they appear in the marketplace.
-
-The platform acts as secure middleware — it decouples strategy logic from brokerage execution so that users never need to run local infrastructure.
+This document justifies the architectural practices applied in VanTrade, a multi-tenant algorithmic trading strategy marketplace built for the Software Architecture course. Each section maps a concrete architectural decision to the files and code where it is implemented.
 
 ---
 
-## Repository Layout
+## 1. Monorepo with Turborepo (Workspace Architecture)
+
+**Pattern:** Multi-package monorepo with orchestrated builds.
+
+VanTrade is organized as a single repository containing three independently deployable packages managed by **pnpm workspaces** and **Turborepo**:
 
 ```
 vantrade/
-├── apps/
-│   ├── api/          # NestJS — all business logic, REST API
-│   └── web/          # Next.js 14 — UI only, calls NestJS API
-├── packages/
-│   └── types/        # Shared Zod schemas + TypeScript interfaces
-├── prisma/
-│   └── schema.prisma
-└── turbo.json
+├── apps/api/          NestJS REST API  (port 4000)
+├── apps/web/          Next.js frontend (port 3000)
+└── packages/types/    Shared Zod schemas + TypeScript interfaces
 ```
 
-Managed as a **pnpm monorepo** with **Turborepo** for parallel builds and caching. The shared `@vantrade/types` package is the contract between the two apps — type changes break both sides at compile time, not at runtime.
+**Why it matters:**
+- Code sharing without a separate npm package publish step — `@vantrade/types` is resolved locally via workspace linking.
+- Turborepo caches build artifacts (`turbo.json`) so unchanged packages are not rebuilt.
+- A single `pnpm install` at the root wires everything together.
+
+**Key file:** `turbo.json`, `pnpm-workspace.yaml`
 
 ---
 
-## Backend (`apps/api`) — NestJS
+## 2. Hexagonal Architecture (Ports & Adapters)
 
-### Architectural Pattern: Hexagonal (Ports & Adapters)
+**Pattern:** Domain logic is isolated from infrastructure via explicit port interfaces and swappable adapters.
 
-The core principle: domain logic never imports infrastructure. Infrastructure is injected through interfaces.
+The trading subsystem enforces three strict layers:
 
+### 2.1 Domain Layer — Pure Functions
+
+**File:** `apps/api/src/trading/trading.engine.ts`
+
+Contains only pure, stateless functions with zero infrastructure imports:
+
+| Function | Purpose |
+|---|---|
+| `calculateRSI(prices, period)` | Wilder's smoothing RSI |
+| `calculateSMA(prices, period)` | Simple Moving Average |
+| `generateSignal(rsi, buy, sell)` | BUY / SELL / HOLD decision |
+| `calculatePnL(entry, exit, qty, side)` | Realised profit/loss |
+| `calculateUnrealisedPnL(...)` | Mark-to-market PnL |
+
+Because these are pure functions, they are fully unit-testable without any database or network mock.
+
+### 2.2 Port — IBrokerAdapter Interface
+
+**File:** `packages/types/src/interfaces/IBrokerAdapter.ts`
+
+```typescript
+export interface IBrokerAdapter {
+  getHistoricalPrices(symbol: string, limit: number): Promise<number[]>;
+  getLatestPrice(symbol: string): Promise<number>;
+  getRecentBars(symbol, timeframe, limit): Promise<MarketBarDto[]>;
+  placeOrder(params: OrderParams): Promise<OrderResult>;
+  placeOrderWithCredentials(params, key, secret): Promise<OrderResult>;
+  getPositions(accountId: string): Promise<Position[]>;
+}
 ```
-┌─────────────────────────────────────────────┐
-│                  Domain                      │
-│   trading.engine.ts — pure functions only    │
-│   calculateRSI / generateSignal / calculatePnL│
-└─────────────┬───────────────────────────────┘
-              │ depends on interface only
-              ▼
-┌─────────────────────────────────────────────┐
-│              IBrokerAdapter (PORT)           │
-│   getHistoricalPrices / placeOrder / ...     │
-└─────────────┬───────────────────────────────┘
-              │ implemented by
-              ▼
-┌─────────────────────────────────────────────┐
-│          AlpacaAdapter (ADAPTER)             │
-│   Alpaca Trade API SDK — only file that      │
-│   imports the SDK                            │
-└─────────────────────────────────────────────┘
+
+The `HeartbeatService` depends on this interface, **not** on Alpaca. The interface lives in `packages/types` (not in `apps/api`) so it has no dependency on any broker SDK.
+
+### 2.3 Adapter — AlpacaAdapter
+
+**File:** `apps/api/src/trading/broker/alpaca.adapter.ts`
+
+The **only** file in the entire codebase that imports `@alpacahq/alpaca-trade-api`. Implements all six methods of `IBrokerAdapter`. Handles:
+- Symbol normalization (AAPL, BTCUSD, BTC/USD)
+- Multiple timeframes (1Min → 1Day)
+- System credentials for read-only market data vs. per-user credentials for order execution
+
+### 2.4 Binding via Dependency Injection
+
+**File:** `apps/api/src/trading/trading.module.ts`
+
+```typescript
+@Module({
+  providers: [{ provide: 'IBrokerAdapter', useClass: AlpacaAdapter }],
+  exports: ['IBrokerAdapter'],
+})
 ```
 
-To add a second broker (IBKR, Binance, etc.), write a new adapter implementing `IBrokerAdapter` and rebind the token in the NestJS module — zero changes to domain logic.
+To swap to a different broker, only this binding changes — zero modifications to domain logic or the heartbeat service.
 
-### Layer Responsibilities
+---
 
-| Layer | File | Rule |
+## 3. Repository Pattern
+
+**Pattern:** Each feature module owns a dedicated repository class that is the sole point of database access.
+
+**Rule enforced:** Only `*.repository.ts` files may import `PrismaService`. No controller or service touches the database directly.
+
+| Repository | File | Responsibility |
 |---|---|---|
-| **Controller** | `*.controller.ts` | Parse request → validate with Zod → call one service method → return |
-| **Service** | `*.service.ts` | Business logic, authorization checks, orchestration |
-| **Repository** | `*.repository.ts` | **Only** file in each module that touches Prisma |
-| **Engine** | `trading.engine.ts` | Pure functions, no side effects, no DI decorators |
-| **Adapter** | `alpaca.adapter.ts` | **Only** file that imports the Alpaca SDK |
+| `SubscriptionsRepository` | `subscriptions/subscriptions.repository.ts` | CRUD + `findAllActive()` for heartbeat |
+| `TradeLogsRepository` | `trade-logs/trade-logs.repository.ts` | Append-only trade log writes and reads |
+| `BlueprintsRepository` | `blueprints/blueprints.repository.ts` | Marketplace CRUD + admin queries |
+| `ApiKeysRepository` | `api-keys/api-keys.repository.ts` | Encrypted credential storage |
+| `AuthRepository` | `auth/auth.repository.ts` | User lookup and creation |
 
-### Module Map
+**PrismaModule** is declared `@Global()` in `apps/api/src/prisma/prisma.module.ts` so `PrismaService` is injected into repositories without requiring explicit module imports everywhere.
+
+---
+
+## 4. Layered NestJS Feature Modules
+
+**Pattern:** Vertical slice architecture — each feature is a self-contained module with Controller → Service → Repository.
+
+The API contains **10 feature modules**, each following the same structure:
+
+```
+<feature>.controller.ts   HTTP boundary, validates input, calls service
+<feature>.service.ts      Business logic, orchestration
+<feature>.repository.ts   Database queries (Prisma only)
+<feature>.module.ts       DI wiring
+```
+
+| Module | Role |
+|---|---|
+| `AuthModule` | JWT login/register, Passport strategy |
+| `BlueprintsModule` | Marketplace CRUD, admin verification gate |
+| `SubscriptionsModule` | Subscribe/unsubscribe, toggle active |
+| `TradingModule` | Exports `IBrokerAdapter` DI token |
+| `HeartbeatModule` | Background cron execution engine |
+| `EncryptionModule` | AES-256-GCM key encryption/decryption |
+| `ApiKeysModule` | Broker credential management |
+| `MarketDataModule` | Real-time price endpoint for UI |
+| `TradeLogsModule` | Exports `TradeLogsRepository` |
+| `PrismaModule` | Global database connection |
+
+**Thin Controller Rule:** Controllers do exactly three things — validate with `ZodValidationPipe`, call one service method, return the result. No conditionals, no Prisma, no SDK calls inside controllers.
+
+---
+
+## 5. Background Processing — Heartbeat Execution Loop
+
+**Pattern:** Event-driven scheduling (cron-based) with fault-isolated concurrent execution.
+
+**File:** `apps/api/src/heartbeat/heartbeat.service.ts`
+
+The heartbeat is the core engine that executes all active trading subscriptions on a recurring schedule:
+
+```
+@Cron('*/60 * * * * *')  ← fires every 60 seconds
+tick()
+ └── findAllActive() subscriptions
+     └── Promise.allSettled()  ← parallel, fault-isolated
+         └── processSub(sub) per subscription
+             1. Validate blueprint parameters (Zod)
+             2. Check market hours (stocks: 9:30–16:00 ET; crypto: 24/7)
+             3. Check timeframe boundary alignment
+             4. Fetch recent OHLCV bars via IBrokerAdapter
+             5. calculateRSI() — pure domain function
+             6. generateSignal() — pure domain function
+             7. Enforce alternation (BUY→SELL→BUY, no double-buy)
+             8. Decrypt user API keys via EncryptionService
+             9. placeOrderWithCredentials() via IBrokerAdapter
+            10. Persist TradeLog (append-only)
+```
+
+**`Promise.allSettled()`** ensures that a failure in one subscription (e.g., invalid credentials, network error) does not block or cancel execution for all other subscriptions.
+
+---
+
+## 6. Shared Type Package — Single Source of Truth
+
+**Pattern:** Contract-first design with a shared types package consumed by both backend and frontend.
+
+**Package:** `packages/types` (imported as `@vantrade/types`)
 
 ```
 src/
-├── auth/           — JWT strategy, guards, RBAC decorator
-├── blueprints/     — Blueprint CRUD + admin verification
-├── subscriptions/  — Tester subscription management
-├── trade-logs/     — Append-only trade execution records
-├── trading/
-│   ├── trading.engine.ts     — RSI, SMA, signal logic (pure functions)
-│   └── broker/
-│       ├── IBrokerAdapter.ts — The port (re-exports from @vantrade/types)
-│       └── alpaca.adapter.ts — The adapter
-├── heartbeat/      — Autonomous cron execution loop
-├── encryption/     — AES-256-GCM key vault
-└── api-keys/       — Tester Alpaca key storage
+├── enums.ts                Role, OrderSide, TradeSignal, OrderStatus
+├── interfaces/
+│   ├── IBrokerAdapter.ts   Port interface + broker-related types
+│   └── index.ts            JwtPayload, BlueprintParameters, MarketBarDto, ...
+└── schemas/                Zod validation schemas (reused on both sides)
+    ├── auth.schema.ts
+    ├── blueprint.schema.ts
+    ├── subscription.schema.ts
+    ├── trade-log.schema.ts
+    └── ...
 ```
 
-### Validation
+Zod schemas are defined **once** and used:
+- In **NestJS controllers** (`ZodValidationPipe`) to validate incoming request bodies.
+- In the **web API client** (`base.ts`) to parse and validate API responses at runtime.
 
-All controller inputs are validated with a `ZodValidationPipe` before the service is ever called. The same schemas in `@vantrade/types` validate both the NestJS API and the Next.js API client — single source of truth for the contract.
+This eliminates duplicated type definitions and ensures both apps agree on the same contract.
 
 ---
 
-## The Heartbeat Loop
+## 7. Typed API Client Layer (Frontend)
 
-The heartbeat is the autonomous execution engine. It runs every 60 seconds via `@nestjs/schedule`.
+**Pattern:** Adapter pattern on the frontend — typed fetch wrappers isolate HTTP concerns from UI components.
 
-```
-Every 60 seconds:
-  For each active Subscription (in parallel, isolated):
-    1. Parse + validate Blueprint parameters (Zod)
-    2. Decrypt user's Alpaca API key (AES-256-GCM)
-    3. Fetch rsiPeriod + 1 historical price bars from Alpaca
-    4. calculateRSI(prices, rsiPeriod)
-    5. generateSignal(rsi, buyThreshold, sellThreshold) → BUY | SELL | HOLD
-    6. If BUY or SELL: placeOrder(params, userCredentials)
-    7. Write TradeLog record (regardless of signal)
-    8. On any error: log + continue (never rethrows)
-```
+**Directory:** `apps/web/src/lib/api-client/`
 
-**Key invariant:** `placeOrder` always executes with the individual user's decrypted Alpaca credentials — never the platform's system account. Credentials are decrypted in-memory per tick and never persisted or logged.
+Every entity has its own client file:
 
----
-
-## Data Model
-
-```
-User ──< Blueprint        (PROVIDER creates blueprints)
-User ──< Subscription     (TESTER subscribes to blueprints)
-User ──< ApiKey           (TESTER stores their Alpaca credentials)
-Blueprint ──< Subscription
-Subscription ──< TradeLog (append-only execution record)
-```
-
-```
-User        { id, email, passwordHash, role[PROVIDER|TESTER|ADMIN] }
-Blueprint   { id, title, description, parameters(JSON), isVerified, authorId }
-Subscription{ id, isActive, userId, blueprintId }  @@unique([userId, blueprintId])
-ApiKey      { id, encryptedKey, encryptedSecret, broker, userId }
-TradeLog    { id, symbol, side, quantity, price, pnl, status, executedAt, subscriptionId }
-```
-
-`Blueprint.parameters` is a validated JSON column — the application enforces its shape via `BlueprintParametersSchema` (Zod) at read time.
-
----
-
-## Security
-
-| Concern | Implementation |
+| Client | File |
 |---|---|
-| Authentication | JWT in HttpOnly cookie (`sameSite: lax`) |
-| Authorization | `JwtAuthGuard` + `RolesGuard` on every protected route |
-| Role assignment | Registration always sets `Role.TESTER` — roles are not user-controlled |
-| API key storage | AES-256-GCM encrypted before DB write, decrypted only at execution time |
-| Input validation | Zod at every controller boundary |
-| Audit trail | TradeLog is append-only — no UPDATE or DELETE |
-| Secrets | All secrets via `process.env`, never hard-coded |
+| Auth | `auth.client.ts` |
+| Blueprints | `blueprints.client.ts` |
+| Subscriptions | `subscriptions.client.ts` |
+| API Keys | `api-keys.client.ts` |
+| Market Data | `market-data.client.ts` |
+| Trade Logs | `trade-logs.client.ts` |
 
-**RBAC matrix:**
+All clients use a shared generic `apiClient` from `base.ts`:
 
-| Action | PROVIDER | TESTER | ADMIN |
-|---|---|---|---|
-| Create / edit own Blueprint | ✅ | ❌ | ❌ |
-| View marketplace | ✅ | ✅ | ✅ |
-| Subscribe to Blueprint | ❌ | ✅ | ❌ |
-| View own trade logs | ❌ | ✅ | ❌ |
-| Verify / reject Blueprint | ❌ | ❌ | ✅ |
+```typescript
+async function request<T>(
+  path: string,
+  options: RequestInit,
+  token?: string,
+  schema?: ZodType<T>,
+): Promise<T>
+```
 
----
+- Attaches `Authorization: Bearer` header automatically.
+- Parses responses through the corresponding Zod schema — any unexpected shape throws an error immediately.
+- Raises `ApiError` with HTTP status code on non-2xx responses.
 
-## Frontend (`apps/web`) — Next.js 14
-
-- **App Router** for routing and page-level layout
-- **No Route Handlers, no Server Actions** — all data goes through the NestJS REST API
-- **No Prisma, no business logic** — UI only
-- Typed API client in `lib/api-client/` uses the same Zod schemas from `@vantrade/types` to validate responses
+React pages import named client functions, not `fetch` directly. This means HTTP logic is in one place and pages contain only UI concerns.
 
 ---
 
-## Known Limitations & Future Work
+## 8. Authentication & Authorization
 
-| Limitation | Impact | Recommended Solution |
-|---|---|---|
-| Single-process cron | ~100+ active subscriptions will saturate the event loop | Replace with BullMQ job queue (Redis-backed, with retries + rate limiting) |
-| No JWT refresh tokens | 7-day tokens cannot be revoked after compromise | Short-lived access tokens (15 min) + rotating refresh tokens |
-| PnL is always null | No position tracking across ticks | Track open positions; calculate realized PnL on matching SELL |
-| Single strategy type | All blueprints run the same RSI logic | `Strategy` interface + `strategyType` enum on Blueprint |
-| Hardcoded scrypt salt | Weakens key derivation uniformity | Random salt per key, or use a managed secrets vault (AWS KMS / Vault) |
-| No key rotation | Compromised `ENCRYPTION_KEY` exposes all stored API keys | Version keys in vault; re-encryption migration path |
-| Blueprint parameters schema drift | Old blueprints silently fail at execution time | Validate parameters at creation; add `strategyType` column |
+**Pattern:** Stateless JWT authentication + declarative Role-Based Access Control (RBAC) with NestJS Guards.
+
+### 8.1 Authentication
+
+**Files:** `auth/jwt.strategy.ts`, `auth/jwt-auth.guard.ts`
+
+- On login, the API signs a JWT containing `{ sub, email, role }` and returns it.
+- The web app stores the token and passes it as `Authorization: Bearer <token>` on every request.
+- `JwtStrategy` (Passport) validates the token and attaches the decoded payload to `req.user`.
+
+### 8.2 Role-Based Access Control
+
+**Files:** `auth/roles.guard.ts`, `auth/roles.decorator.ts`
+
+```typescript
+@Get('admin/all')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
+findAll() { ... }
+```
+
+- `@Roles(Role.X)` attaches metadata to the route handler.
+- `RolesGuard` reads `req.user.role` from the JWT payload and compares it to the required role.
+- **Roles are never accepted from the request body** — registration always assigns `Role.TESTER`.
+
+| Role | What they can do |
+|---|---|
+| `TESTER` | Browse verified blueprints, subscribe, manage API keys |
+| `PROVIDER` | All TESTER permissions + create/edit/delete own blueprints |
+| `ADMIN` | All permissions + verify blueprints, view all data |
+
+---
+
+## 9. Security — Encrypted Credential Storage
+
+**Pattern:** Encrypt-at-rest with in-memory-only decryption.
+
+**File:** `apps/api/src/encryption/encryption.service.ts`
+
+Broker API keys are sensitive and must never be stored in plaintext or appear in logs.
+
+- **Algorithm:** AES-256-GCM (authenticated encryption — detects tampering)
+- **Key derivation:** `scrypt` from the `ENCRYPTION_KEY` environment variable
+- **Storage format:** `iv:authTag:ciphertext` (all hex) in the `ApiKey` table
+- **Decryption:** Happens inside `HeartbeatService.processSub()`, in memory, immediately before the order is placed. The decrypted key is passed as a function argument — **never stored on the adapter instance**.
+
+---
+
+## 10. Append-Only Audit Log
+
+**Pattern:** Immutable event ledger.
+
+**File:** `apps/api/src/trade-logs/trade-logs.repository.ts`
+
+`TradeLog` rows are never updated or deleted. The repository exposes only:
+- `create(data)` — insert a new record
+- `findBySubscription(id)` — read records
+- `findLatestTradeSideBySubscription(id)` — used to enforce trade alternation
+
+This is enforced at the application layer: no `update` or `delete` methods exist on `TradeLogsRepository`. Any trade execution — including errors and HOLD signals — is logged, providing a complete, tamper-evident audit trail.
+
+---
+
+## 11. Validation Pipeline
+
+**Pattern:** Parse, don't validate — schemas as the contract at every system boundary.
+
+Every controller endpoint is protected by a `ZodValidationPipe`:
+
+```typescript
+@Post()
+@UsePipes(new ZodValidationPipe(SubscriptionCreateSchema))
+create(@Body() dto: SubscriptionCreateDto, @Req() req: AuthRequest) {
+  return this.subscriptionsService.create(req.user.sub, dto);
+}
+```
+
+Zod schemas are sourced from `@vantrade/types` (never duplicated), ensuring backend and frontend always validate against the same shape. On parse failure, the pipe throws `BadRequestException` with the Zod error details.
+
+---
+
+## 12. Testing Strategy
+
+**Pattern:** Test pyramid — pure unit tests at the domain layer, integration-style mocks at the service layer.
+
+### Domain Layer (Pure Functions)
+
+**File:** `apps/api/src/trading/trading.engine.spec.ts`
+
+No mocks needed. Tests call `calculateRSI`, `generateSignal`, `calculatePnL`, etc. directly with known inputs and verify outputs. Edge cases: insufficient data, all-gain/loss sequences, boundary RSI values.
+
+### Service Layer (HeartbeatService)
+
+**File:** `apps/api/src/heartbeat/heartbeat.service.spec.ts`
+
+Uses `@nestjs/testing` `Test.createTestingModule()` with mocked repositories, broker adapter, and encryption service. Tests cover: market hours logic, timeframe alignment, RSI thresholds, alternation enforcement, error isolation per subscription, credential decryption flow.
+
+### Frontend API Client
+
+**File:** `apps/web/src/lib/api-client/base.spec.ts`
+
+Tests the generic fetch wrapper: Zod schema validation on response, `ApiError` raised on non-2xx, 204 No Content handling, authorization header injection.
+
+**Coverage target:** ≥ 80% line coverage on `apps/api/src/trading/`.
+
+---
+
+## Architecture Decision Summary
+
+| Architecture Practice | Where Applied |
+|---|---|
+| Hexagonal / Ports & Adapters | `IBrokerAdapter` port + `AlpacaAdapter` + `trading.engine.ts` |
+| Repository Pattern | One `*.repository.ts` per feature, sole Prisma access point |
+| Layered Feature Modules | 10 NestJS modules (Controller → Service → Repository) |
+| Thin Controller | Controllers: validate → call service → return |
+| Shared Contract Package | `packages/types` — Zod schemas + interfaces used by both apps |
+| Dependency Injection | NestJS DI container; `IBrokerAdapter` token for broker swap |
+| Role-Based Access Control | `JwtAuthGuard` + `RolesGuard` + `@Roles()` decorator |
+| Background Scheduling | `@Cron` heartbeat with `Promise.allSettled()` fault isolation |
+| Encrypt-at-Rest | AES-256-GCM for broker credentials; decrypt in-memory only |
+| Append-Only Ledger | `TradeLog` — no update/delete methods in repository |
+| End-to-End Type Safety | TypeScript + Zod from DB schema to React component |
+| Monorepo Orchestration | Turborepo build cache + pnpm workspaces |
