@@ -9,7 +9,8 @@
       "Bash(xargs wc:*)",
       "Bash(pnpm --filter api build)",
       "Bash(pnpm --filter api tsc --noEmit)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find:*)"
     ]
   }
 }
