@@ -24,7 +24,31 @@ vantrade/
 
 - **Node.js** >= 20
 - **pnpm** >= 9 — `npm install -g pnpm`
-- **PostgreSQL** running locally (or a connection string)
+- **PostgreSQL** — local instance or a hosted provider (see below)
+
+---
+
+## Database options
+
+### Option A — Local PostgreSQL
+
+Install PostgreSQL locally and use a connection string like:
+
+```
+DATABASE_URL="postgresql://postgres:password@localhost:5432/vantrade"
+```
+
+### Option B — Supabase (recommended for quick setup)
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to **Settings → Database → Connection string** and copy the **direct URI** (port `5432`, not the pooler)
+3. Use it as your `DATABASE_URL`:
+
+```
+DATABASE_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+```
+
+> **Important:** always use the direct connection (port `5432`) for `prisma:migrate`. The pooler URL (port `6543`) will cause the migration command to hang.
 
 ---
 
