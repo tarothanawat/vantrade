@@ -12,13 +12,16 @@ import { EncryptionService } from '../encryption/encryption.service';
 import { TradeLogsRepository } from '../trade-logs/trade-logs.repository';
 import { SubscriptionsRepository } from '../subscriptions/subscriptions.repository';
 import { calculateRSI, generateSignal } from '../trading/trading.engine';
+import {
+  isMarketOpenForSymbol,
+  shouldRunForTimeframe,
+} from './market-hours.util';
 
 type ActiveSubscription = Awaited<ReturnType<SubscriptionsRepository['findAllActive']>>[number];
 
 @Injectable()
 export class HeartbeatService {
   private readonly logger = new Logger(HeartbeatService.name);
-  private readonly usMarketTimezone = 'America/New_York';
   private lastRunAt: Date | null = null;
   private lastActiveCount = 0;
 
@@ -45,71 +48,6 @@ export class HeartbeatService {
     this.lastRunAt = new Date();
     this.logger.debug(`Processing ${active.length} active subscriptions`);
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
-  }
-
-  private isTwentyFourSevenSymbol(symbol: string): boolean {
-    const normalized = symbol.trim().toUpperCase();
-    return normalized.endsWith('USD') || normalized.endsWith('USDT');
-  }
-
-  private isUsMarketOpen(now: Date = new Date()): boolean {
-    const { weekday, hour, minute } = this.getEasternTimeParts(now);
-    if (weekday === 'Sat' || weekday === 'Sun') return false;
-
-    const minutesSinceMidnight = hour * 60 + minute;
-    const marketOpenMinute = 9 * 60 + 30; // 09:30 ET
-    const marketCloseMinute = 16 * 60; // 16:00 ET
-
-    return minutesSinceMidnight >= marketOpenMinute && minutesSinceMidnight < marketCloseMinute;
-  }
-
-  private isMarketOpenForSymbol(symbol: string, now: Date = new Date()): boolean {
-    if (this.isTwentyFourSevenSymbol(symbol)) return true;
-    return this.isUsMarketOpen(now);
-  }
-
-  private getEasternTimeParts(now: Date = new Date()): {
-    weekday: string;
-    hour: number;
-    minute: number;
-  } {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: this.usMarketTimezone,
-      weekday: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-
-    const parts = formatter.formatToParts(now);
-    const getPart = (type: Intl.DateTimeFormatPartTypes): string =>
-      parts.find((part) => part.type === type)?.value ?? '';
-
-    return {
-      weekday: getPart('weekday'),
-      hour: Number(getPart('hour')),
-      minute: Number(getPart('minute')),
-    };
-  }
-
-  private shouldRunForTimeframe(timeframe: MarketDataTimeframe, now: Date = new Date()): boolean {
-    const { hour, minute } = this.getEasternTimeParts(now);
-    if (Number.isNaN(hour) || Number.isNaN(minute)) return false;
-
-    switch (timeframe) {
-      case '1Min':
-        return true;
-      case '5Min':
-        return minute % 5 === 0;
-      case '15Min':
-        return minute % 15 === 0;
-      case '1Hour':
-        return minute === 0;
-      case '1Day':
-        return hour === 0 && minute === 0;
-      default:
-        return true;
-    }
   }
 
   private async getLastTradeSide(subscriptionId: string): Promise<OrderSide | null> {
@@ -144,7 +82,7 @@ export class HeartbeatService {
       const executionTimeframe: MarketDataTimeframe = params.executionTimeframe ?? '1Min';
       const executionMode = params.executionMode ?? 'BUY_LOW_SELL_HIGH';
 
-      if (!this.shouldRunForTimeframe(executionTimeframe)) {
+      if (!shouldRunForTimeframe(executionTimeframe)) {
         this.logger.debug(
           `Skipping ${params.symbol} for subscription ${sub.id} — waiting for ${executionTimeframe} boundary`,
         );
@@ -156,7 +94,7 @@ export class HeartbeatService {
         return;
       }
 
-      if (!this.isMarketOpenForSymbol(params.symbol)) {
+      if (!isMarketOpenForSymbol(params.symbol)) {
         this.logger.debug(
           `Market is closed for ${params.symbol} — skipping subscription ${sub.id} until open session`,
         );

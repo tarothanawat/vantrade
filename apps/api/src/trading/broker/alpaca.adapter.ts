@@ -9,37 +9,17 @@ import type {
     Position,
 } from '@vantrade/types';
 import { OrderSide, OrderStatus } from '@vantrade/types';
+import {
+    getCryptoSymbolCandidates,
+    getStockSymbolCandidates,
+    isCryptoLikeSymbol,
+    normalizeSymbol,
+} from './symbol-normalizer';
 
 @Injectable()
 export class AlpacaAdapter implements IBrokerAdapter {
   private readonly logger = new Logger(AlpacaAdapter.name);
   private readonly cryptoDataBaseUrl = 'https://data.alpaca.markets';
-
-  private normalizeSymbol(symbol: string): string {
-    return symbol.trim().toUpperCase();
-  }
-
-  private toCryptoSlashSymbol(symbol: string): string | null {
-    const normalized = this.normalizeSymbol(symbol);
-    if (normalized.includes('/')) return null;
-
-    if (normalized.endsWith('USDT') && normalized.length > 4) {
-      return `${normalized.slice(0, -4)}/USDT`;
-    }
-
-    if (normalized.endsWith('USD') && normalized.length > 3) {
-      return `${normalized.slice(0, -3)}/USD`;
-    }
-
-    return null;
-  }
-
-  private getSymbolCandidates(symbol: string): string[] {
-    const normalized = this.normalizeSymbol(symbol);
-    const slashVariant = this.toCryptoSlashSymbol(normalized);
-    if (!slashVariant) return [normalized];
-    return [normalized, slashVariant];
-  }
 
   /**
    * Computes an ISO start date so Alpaca returns enough historical bars.
@@ -107,23 +87,19 @@ export class AlpacaAdapter implements IBrokerAdapter {
     };
   }
 
-  private async fetchStockBars(
+  /**
+   * Shared paginated fetch loop used by both stock and crypto bar endpoints.
+   * Mutates `url` on each iteration to append the next-page token.
+   */
+  private async fetchBarsFromEndpoint(
+    url: URL,
     symbol: string,
-    timeframe: MarketDataTimeframe,
     limit: number,
   ): Promise<MarketBarDto[]> {
-    const tf = this.toAlpacaTimeframe(timeframe);
-    const start = this.calcStartDate(timeframe, limit);
-    const pageSize = Math.min(limit, 10_000);
     const allBars: MarketBarDto[] = [];
     let nextPageToken: string | null = null;
 
     do {
-      const url = new URL(`${this.cryptoDataBaseUrl}/v2/stocks/bars`);
-      url.searchParams.set('symbols', symbol);
-      url.searchParams.set('timeframe', tf);
-      url.searchParams.set('limit', String(pageSize));
-      url.searchParams.set('start', start);
       if (nextPageToken) url.searchParams.set('page_token', nextPageToken);
 
       const response = await fetch(url.toString(), {
@@ -134,7 +110,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
       if (!response.ok) {
         const bodyText = await response.text().catch(() => '');
         throw new Error(
-          `Failed to fetch stock bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
+          `Failed to fetch bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
         );
       }
 
@@ -145,15 +121,29 @@ export class AlpacaAdapter implements IBrokerAdapter {
       const symbolBars = (bars as Record<string, unknown>)[symbol];
       if (!Array.isArray(symbolBars)) break;
 
-      const parsed = symbolBars
-        .map((row) => this.parseBar(row, symbol))
-        .filter((row): row is MarketBarDto => row !== null);
+      allBars.push(
+        ...symbolBars
+          .map((row) => this.parseBar(row, symbol))
+          .filter((row): row is MarketBarDto => row !== null),
+      );
 
-      allBars.push(...parsed);
       nextPageToken = (payload['next_page_token'] as string | null) ?? null;
     } while (nextPageToken !== null && allBars.length < limit);
 
     return allBars.slice(0, limit);
+  }
+
+  private async fetchStockBars(
+    symbol: string,
+    timeframe: MarketDataTimeframe,
+    limit: number,
+  ): Promise<MarketBarDto[]> {
+    const url = new URL(`${this.cryptoDataBaseUrl}/v2/stocks/bars`);
+    url.searchParams.set('symbols', symbol);
+    url.searchParams.set('timeframe', this.toAlpacaTimeframe(timeframe));
+    url.searchParams.set('limit', String(Math.min(limit, 10_000)));
+    url.searchParams.set('start', this.calcStartDate(timeframe, limit));
+    return this.fetchBarsFromEndpoint(url, symbol, limit);
   }
 
   private async fetchCryptoBars(
@@ -161,67 +151,13 @@ export class AlpacaAdapter implements IBrokerAdapter {
     timeframe: MarketDataTimeframe,
     limit: number,
   ): Promise<MarketBarDto[]> {
-    const tf = this.toAlpacaTimeframe(timeframe);
     const loc = process.env.ALPACA_CRYPTO_DATA_LOC ?? 'us';
-    const start = this.calcStartDate(timeframe, limit);
-    const pageSize = Math.min(limit, 10_000);
-    const allBars: MarketBarDto[] = [];
-    let nextPageToken: string | null = null;
-
-    do {
-      const url = new URL(`${this.cryptoDataBaseUrl}/v1beta3/crypto/${loc}/bars`);
-      url.searchParams.set('symbols', symbol);
-      url.searchParams.set('timeframe', tf);
-      url.searchParams.set('limit', String(pageSize));
-      url.searchParams.set('start', start);
-      if (nextPageToken) url.searchParams.set('page_token', nextPageToken);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: this.getDataAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const bodyText = await response.text().catch(() => '');
-        throw new Error(
-          `Failed to fetch crypto bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
-        );
-      }
-
-      const payload = (await response.json()) as Record<string, unknown>;
-      const bars = payload['bars'];
-      if (typeof bars !== 'object' || bars === null) break;
-
-      const symbolBars = (bars as Record<string, unknown>)[symbol];
-      if (!Array.isArray(symbolBars)) break;
-
-      const parsed = symbolBars
-        .map((row) => this.parseBar(row, symbol))
-        .filter((row): row is MarketBarDto => row !== null);
-
-      allBars.push(...parsed);
-      nextPageToken = (payload['next_page_token'] as string | null) ?? null;
-    } while (nextPageToken !== null && allBars.length < limit);
-
-    return allBars.slice(0, limit);
-  }
-
-  private isCryptoLikeSymbol(symbol: string): boolean {
-    const normalized = this.normalizeSymbol(symbol);
-    return (
-      normalized.includes('/') ||
-      normalized.endsWith('USD') ||
-      normalized.endsWith('USDT')
-    );
-  }
-
-  private getCryptoSymbolCandidates(symbol: string): string[] {
-    const normalized = this.normalizeSymbol(symbol);
-    const slash = this.toCryptoSlashSymbol(normalized);
-    const ordered = [slash ?? normalized, normalized, slash].filter(
-      (value): value is string => Boolean(value),
-    );
-    return [...new Set(ordered)];
+    const url = new URL(`${this.cryptoDataBaseUrl}/v1beta3/crypto/${loc}/bars`);
+    url.searchParams.set('symbols', symbol);
+    url.searchParams.set('timeframe', this.toAlpacaTimeframe(timeframe));
+    url.searchParams.set('limit', String(Math.min(limit, 10_000)));
+    url.searchParams.set('start', this.calcStartDate(timeframe, limit));
+    return this.fetchBarsFromEndpoint(url, symbol, limit);
   }
 
   private getDataAuthHeaders(): Record<string, string> {
@@ -306,8 +242,8 @@ export class AlpacaAdapter implements IBrokerAdapter {
   }
 
   async getLatestPrice(symbol: string): Promise<number> {
-    if (this.isCryptoLikeSymbol(symbol)) {
-      const cryptoCandidates = this.getCryptoSymbolCandidates(symbol);
+    if (isCryptoLikeSymbol(symbol)) {
+      const cryptoCandidates = getCryptoSymbolCandidates(symbol);
 
       for (const candidate of cryptoCandidates) {
         const barClose = await this.getLatestCryptoBarClose(candidate);
@@ -329,7 +265,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
       process.env.ALPACA_API_SECRET ?? '',
     );
 
-    const symbolCandidates = this.getSymbolCandidates(symbol);
+    const symbolCandidates = getStockSymbolCandidates(symbol);
     let lastError: Error | null = null;
 
     for (const candidate of symbolCandidates) {
@@ -365,10 +301,10 @@ export class AlpacaAdapter implements IBrokerAdapter {
     timeframe: MarketDataTimeframe,
     limit: number,
   ): Promise<MarketBarDto[]> {
-    const normalized = this.normalizeSymbol(symbol);
+    const normalized = normalizeSymbol(symbol);
 
-    if (this.isCryptoLikeSymbol(normalized)) {
-      const cryptoCandidates = this.getCryptoSymbolCandidates(normalized);
+    if (isCryptoLikeSymbol(normalized)) {
+      const cryptoCandidates = getCryptoSymbolCandidates(normalized);
       for (const candidate of cryptoCandidates) {
         try {
           const bars = await this.fetchCryptoBars(candidate, timeframe, limit);
@@ -396,7 +332,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
     apiSecret: string,
   ): Promise<OrderResult> {
     const client = this.buildClient(apiKey, apiSecret);
-    const symbolCandidates = this.getSymbolCandidates(params.symbol);
+    const symbolCandidates = getStockSymbolCandidates(params.symbol);
     let order: Record<string, unknown> | null = null;
     let placedSymbol = params.symbol;
     let lastError: Error | null = null;

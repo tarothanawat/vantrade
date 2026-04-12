@@ -1,20 +1,19 @@
 'use client';
 
+import BlueprintCard from '@/components/blueprints/BlueprintCard';
+import RsiPreviewChart from '@/components/blueprints/RsiPreviewChart';
 import InteractiveMarketChart from '@/components/market/InteractiveMarketChart';
-import BacktestPanel from '@/components/marketplace/BacktestPanel';
 import BacktestPreviewPanel from '@/components/marketplace/BacktestPreviewPanel';
+import { useMarketBars } from '@/hooks/use-market-bars';
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
-import { marketDataClient } from '@/lib/api-client/market-data.client';
 import {
   BlueprintCreateSchema,
   BlueprintExecutionModeSchema,
   BlueprintUpdateSchema,
-  MarketDataBarsQuerySchema,
   MarketDataTimeframeSchema,
   type Blueprint,
   type BlueprintCreateDto,
   type BlueprintUpdateDto,
-  type MarketBarDto,
   type MarketDataTimeframe,
 } from '@vantrade/types';
 import { useEffect, useMemo, useState } from 'react';
@@ -140,16 +139,13 @@ export default function MyBlueprintsPage() {
   const [success, setSuccess] = useState('');
   const [form, setForm] = useState<FormState>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [marketBars, setMarketBars] = useState<MarketBarDto[]>([]);
-  const [marketLoading, setMarketLoading] = useState(false);
-  const [marketError, setMarketError] = useState('');
   const [marketChartMode, setMarketChartMode] = useState<'line' | 'candles'>('candles');
   const [expandedBacktest, setExpandedBacktest] = useState<string | null>(null);
 
-  const TIMEFRAME_LIMITS: Record<MarketDataTimeframe, number> = {
-    '1Min': 120, '5Min': 100, '15Min': 96, '1Hour': 72, '1Day': 90,
-  };
-  const marketLimit = TIMEFRAME_LIMITS[form.executionTimeframe];
+  const { bars: marketBars, loading: marketLoading, error: marketError } = useMarketBars(
+    form.symbol,
+    form.executionTimeframe,
+  );
 
   useEffect(() => {
     blueprintsClient
@@ -161,54 +157,6 @@ export default function MyBlueprintsPage() {
       })
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMarketBars() {
-      const parsed = MarketDataBarsQuerySchema.safeParse({
-        symbol: form.symbol,
-        timeframe: form.executionTimeframe,
-        limit: marketLimit,
-      });
-
-      if (!parsed.success) {
-        if (!cancelled) {
-          setMarketError('Invalid market query settings.');
-          setMarketBars([]);
-        }
-        return;
-      }
-
-      if (!cancelled) {
-        setMarketLoading(true);
-        setMarketError('');
-      }
-
-      try {
-        const data = await marketDataClient.getBars(parsed.data);
-        if (!cancelled) {
-          setMarketBars(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : 'Failed to load market data';
-          setMarketError(message);
-          setMarketBars([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setMarketLoading(false);
-        }
-      }
-    }
-
-    void loadMarketBars();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [form.symbol, form.executionTimeframe]);
 
   function setField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -265,7 +213,6 @@ export default function MyBlueprintsPage() {
   const updateValidation = useMemo(() => BlueprintUpdateSchema.safeParse(strategyDraft), [strategyDraft]);
 
   const thresholdConflict = Number(form.rsiBuyThreshold) >= Number(form.rsiSellThreshold);
-
   const canCreate = createValidation.success && !thresholdConflict;
   const canUpdate = updateValidation.success && !thresholdConflict;
 
@@ -408,7 +355,6 @@ export default function MyBlueprintsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this blueprint?')) return;
-
     setError('');
 
     try {
@@ -440,37 +386,8 @@ export default function MyBlueprintsPage() {
     const riskScore = clamp((100 - spread) * 0.7 + Number(form.quantity || 1) * 8, 0, 100);
     const profile = activityScore > 70 ? 'High activity' : activityScore > 45 ? 'Moderate activity' : 'Low activity';
 
-    return {
-      points,
-      buyThreshold,
-      sellThreshold,
-      lastRsi,
-      signal,
-      spread,
-      activityScore,
-      riskScore,
-      profile,
-    };
+    return { points, buyThreshold, sellThreshold, lastRsi, signal, spread, activityScore, riskScore, profile };
   }, [form.quantity, form.rsiBuyThreshold, form.rsiPeriod, form.rsiSellThreshold]);
-
-  const chartWidth = 680;
-  const chartHeight = 220;
-  const chartPath = preview.points
-    .map((value, index) => {
-      const x = (index / (preview.points.length - 1)) * chartWidth;
-      const y = chartHeight - (value / 100) * chartHeight;
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  const buyY = chartHeight - (preview.buyThreshold / 100) * chartHeight;
-  const sellY = chartHeight - (preview.sellThreshold / 100) * chartHeight;
-  const signalColor =
-    preview.signal === 'BUY zone'
-      ? 'text-emerald-300'
-      : preview.signal === 'SELL zone'
-        ? 'text-rose-300'
-        : 'text-indigo-300';
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
@@ -571,9 +488,7 @@ export default function MyBlueprintsPage() {
             <input
               id="bp-rsi-period"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number"
-              min={2}
-              max={100}
+              type="number" min={2} max={100}
               value={form.rsiPeriod}
               onChange={(e) => setField('rsiPeriod', e.target.value)}
               required
@@ -586,9 +501,7 @@ export default function MyBlueprintsPage() {
             <input
               id="bp-ma-period"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number"
-              min={2}
-              max={200}
+              type="number" min={2} max={200}
               value={form.maPeriod}
               onChange={(e) => setField('maPeriod', e.target.value)}
               required
@@ -604,9 +517,7 @@ export default function MyBlueprintsPage() {
               value={form.executionTimeframe}
               onChange={(event) => setField('executionTimeframe', event.target.value as MarketDataTimeframe)}
             >
-              {executionTimeframeOptions.map((tf) => (
-                <option key={tf} value={tf}>{tf}</option>
-              ))}
+              {executionTimeframeOptions.map((tf) => <option key={tf} value={tf}>{tf}</option>)}
             </select>
             {fieldError('executionTimeframe') && <p className="mt-1 text-xs text-red-400">{fieldError('executionTimeframe')}</p>}
           </div>
@@ -617,9 +528,7 @@ export default function MyBlueprintsPage() {
               id="bp-exec-mode"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
               value={form.executionMode}
-              onChange={(event) =>
-                setField('executionMode', event.target.value as FormState['executionMode'])
-              }
+              onChange={(event) => setField('executionMode', event.target.value as FormState['executionMode'])}
             >
               {executionModeOptions.map((mode) => (
                 <option key={mode} value={mode}>
@@ -635,10 +544,7 @@ export default function MyBlueprintsPage() {
             <input
               id="bp-buy-threshold"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number"
-              step="0.01"
-              min={0}
-              max={100}
+              type="number" step="0.01" min={0} max={100}
               value={form.rsiBuyThreshold}
               onChange={(e) => setField('rsiBuyThreshold', e.target.value)}
               required
@@ -646,10 +552,7 @@ export default function MyBlueprintsPage() {
             <input
               aria-label="Buy threshold slider"
               className="mt-2 w-full accent-emerald-500"
-              type="range"
-              min={0}
-              max={100}
-              step={0.5}
+              type="range" min={0} max={100} step={0.5}
               value={Number(form.rsiBuyThreshold) || 0}
               onChange={(e) => setField('rsiBuyThreshold', e.target.value)}
             />
@@ -661,10 +564,7 @@ export default function MyBlueprintsPage() {
             <input
               id="bp-sell-threshold"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number"
-              step="0.01"
-              min={0}
-              max={100}
+              type="number" step="0.01" min={0} max={100}
               value={form.rsiSellThreshold}
               onChange={(e) => setField('rsiSellThreshold', e.target.value)}
               required
@@ -672,10 +572,7 @@ export default function MyBlueprintsPage() {
             <input
               aria-label="Sell threshold slider"
               className="mt-2 w-full accent-rose-500"
-              type="range"
-              min={0}
-              max={100}
-              step={0.5}
+              type="range" min={0} max={100} step={0.5}
               value={Number(form.rsiSellThreshold) || 0}
               onChange={(e) => setField('rsiSellThreshold', e.target.value)}
             />
@@ -690,9 +587,7 @@ export default function MyBlueprintsPage() {
             <input
               id="bp-qty"
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number"
-              step="0.01"
-              min={0.01}
+              type="number" step="0.01" min={0.01}
               value={form.quantity}
               onChange={(e) => setField('quantity', e.target.value)}
               required
@@ -721,7 +616,6 @@ export default function MyBlueprintsPage() {
         <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-300">Live Market Chart Preview</h3>
-
             <div className="flex flex-wrap gap-2 text-xs">
               <button
                 type="button"
@@ -754,11 +648,8 @@ export default function MyBlueprintsPage() {
                 ))}
               </select>
             </div>
-
             <div className="flex items-end text-xs text-gray-400">
-              <p>
-                Symbol source: <span className="text-gray-200">{form.symbol || 'N/A'}</span>
-              </p>
+              <p>Symbol source: <span className="text-gray-200">{form.symbol || 'N/A'}</span></p>
             </div>
           </div>
 
@@ -786,53 +677,7 @@ export default function MyBlueprintsPage() {
         </div>
 
         {marketBars.length === 0 && !marketLoading && (
-          <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-300">Backup Strategy Preview (RSI)</h3>
-              <div className="text-xs text-gray-400">
-                Latest RSI: <span className="font-semibold text-white">{preview.lastRsi.toFixed(1)}</span> ·{' '}
-                Signal: <span className={`font-semibold ${signalColor}`}>{preview.signal}</span>
-              </div>
-            </div>
-
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-                <p className="text-xs text-gray-500">Threshold Spread</p>
-                <p className="text-lg font-semibold text-white">{preview.spread.toFixed(1)}</p>
-              </div>
-              <div className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-                <p className="text-xs text-gray-500">Activity Score</p>
-                <p className="text-lg font-semibold text-indigo-300">{preview.activityScore.toFixed(0)}/100</p>
-                <p className="text-xs text-gray-500">{preview.profile}</p>
-              </div>
-              <div className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-                <p className="text-xs text-gray-500">Risk Proxy</p>
-                <p className="text-lg font-semibold text-amber-300">{preview.riskScore.toFixed(0)}/100</p>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-900 p-2">
-              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-56 w-full min-w-[680px]">
-                <rect x="0" y={sellY} width={chartWidth} height={chartHeight - sellY} fill="rgba(239,68,68,0.07)" />
-                <rect x="0" y={buyY} width={chartWidth} height={chartHeight - buyY} fill="rgba(16,185,129,0.07)" />
-                <line x1="0" y1={buyY} x2={chartWidth} y2={buyY} stroke="#10b981" strokeDasharray="6 6" strokeWidth="2" />
-                <line x1="0" y1={sellY} x2={chartWidth} y2={sellY} stroke="#ef4444" strokeDasharray="6 6" strokeWidth="2" />
-                <polyline fill="none" stroke="#818cf8" strokeWidth="3" points={chartPath} />
-                <circle
-                  cx={chartWidth}
-                  cy={chartHeight - (preview.lastRsi / 100) * chartHeight}
-                  r="4"
-                  fill="#818cf8"
-                />
-              </svg>
-            </div>
-
-            <div className="mt-3 grid gap-2 text-xs text-gray-400 sm:grid-cols-3">
-              <p><span className="text-emerald-400">Buy line</span>: RSI below {preview.buyThreshold.toFixed(1)}</p>
-              <p><span className="text-red-400">Sell line</span>: RSI above {preview.sellThreshold.toFixed(1)}</p>
-              <p><span className="text-indigo-300">Blue line</span>: synthetic RSI trend preview</p>
-            </div>
-          </div>
+          <RsiPreviewChart preview={preview} />
         )}
 
         {createValidation.success && (
@@ -849,67 +694,16 @@ export default function MyBlueprintsPage() {
           <p className="text-gray-500">No blueprints yet. Create your first one above.</p>
         ) : (
           <div className="space-y-4">
-            {blueprints.map((bp) => {
-              const params = bp.parameters as {
-                symbol: string;
-                executionTimeframe?: MarketDataTimeframe;
-                executionMode?: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
-                rsiPeriod: number;
-                rsiBuyThreshold: number;
-                rsiSellThreshold: number;
-                maPeriod: number;
-                quantity: number;
-              };
-
-              return (
-                <article key={bp.id} className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">{bp.title}</h3>
-                      <p className="mt-1 text-sm text-gray-400">{bp.description}</p>
-                      <p className="mt-2 text-xs text-gray-500">
-                        {params.symbol} · Exec {params.executionTimeframe ?? '1Min'} · {params.executionMode === 'SELL_HIGH_BUY_LOW' ? 'Sell high → Buy low' : 'Buy low → Sell high'} · RSI({params.rsiPeriod}) · Buy &lt; {params.rsiBuyThreshold} · Sell &gt; {params.rsiSellThreshold} · MA({params.maPeriod}) · Qty {params.quantity}
-                      </p>
-                      <p className="mt-2 text-xs text-gray-600">
-                        Updated {new Date(bp.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${bp.isVerified ? 'bg-emerald-900 text-emerald-400' : 'bg-yellow-900 text-yellow-400'}`}>
-                        {bp.isVerified ? 'Verified' : 'Pending'}
-                      </span>
-                      <button
-                        onClick={() => setExpandedBacktest(expandedBacktest === bp.id ? null : bp.id)}
-                        className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                          expandedBacktest === bp.id
-                            ? 'border-indigo-500 bg-indigo-950 text-indigo-300'
-                            : 'border-gray-700 text-gray-300 hover:border-indigo-500'
-                        }`}
-                      >
-                        {expandedBacktest === bp.id ? 'Hide Backtest' : 'Backtest'}
-                      </button>
-                      <button onClick={() => startEdit(bp)} className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-300 hover:border-gray-500">
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(bp.id)} className="rounded-lg border border-red-900 px-3 py-1.5 text-xs text-red-400 hover:border-red-700">
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  {expandedBacktest === bp.id && (
-                    <div className="mt-4 border-t border-gray-800 pt-4">
-                      <BacktestPanel
-                        blueprintId={bp.id}
-                        defaultSymbol={params.symbol}
-                        defaultTimeframe={params.executionTimeframe ?? '1Min'}
-                      />
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+            {blueprints.map((bp) => (
+              <BlueprintCard
+                key={bp.id}
+                blueprint={bp}
+                expandedBacktest={expandedBacktest}
+                onEdit={startEdit}
+                onDelete={handleDelete}
+                onToggleBacktest={(id) => setExpandedBacktest(expandedBacktest === id ? null : id)}
+              />
+            ))}
           </div>
         )}
       </section>
