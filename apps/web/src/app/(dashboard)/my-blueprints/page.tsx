@@ -142,7 +142,11 @@ export default function MyBlueprintsPage() {
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState('');
   const [marketChartMode, setMarketChartMode] = useState<'line' | 'candles'>('candles');
-  const [marketLimit, setMarketLimit] = useState(120);
+
+  const TIMEFRAME_LIMITS: Record<MarketDataTimeframe, number> = {
+    '1Min': 120, '5Min': 100, '15Min': 96, '1Hour': 72, '1Day': 90,
+  };
+  const marketLimit = TIMEFRAME_LIMITS[form.executionTimeframe];
 
   useEffect(() => {
     blueprintsClient
@@ -201,7 +205,7 @@ export default function MyBlueprintsPage() {
     return () => {
       cancelled = true;
     };
-  }, [form.symbol, form.executionTimeframe, marketLimit]);
+  }, [form.symbol, form.executionTimeframe]);
 
   function setField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -733,7 +737,7 @@ export default function MyBlueprintsPage() {
             </div>
           </div>
 
-          <div className="mb-4 grid gap-3 md:grid-cols-3">
+          <div className="mb-4 grid gap-3 md:grid-cols-2">
             <div>
               <label htmlFor="bp-market-tf" className="mb-1 block text-xs text-gray-400">Timeframe</label>
               <select
@@ -746,19 +750,6 @@ export default function MyBlueprintsPage() {
                   <option key={tf} value={tf}>{tf}</option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label htmlFor="bp-market-limit" className="mb-1 block text-xs text-gray-400">Bars</label>
-              <input
-                id="bp-market-limit"
-                type="number"
-                min={10}
-                max={500}
-                value={marketLimit}
-                onChange={(event) => setMarketLimit(Number(event.target.value || 120))}
-                className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white"
-              />
             </div>
 
             <div className="flex items-end text-xs text-gray-400">
@@ -776,10 +767,15 @@ export default function MyBlueprintsPage() {
               bars={marketBars}
               chartMode={marketChartMode}
               title={`${form.symbol || 'Symbol'} · ${form.executionTimeframe}`}
+              timeframe={form.executionTimeframe}
               showRsi
               rsiPeriod={Number(form.rsiPeriod) || 14}
               rsiBuyThreshold={Number(form.rsiBuyThreshold) || 30}
               rsiSellThreshold={Number(form.rsiSellThreshold) || 70}
+              showVolume
+              showOhlcvOverlay
+              showXAxis
+              showGridlines
             />
           ) : !marketLoading ? (
             <p className="text-xs text-gray-500">No live bars returned for this symbol/timeframe. Showing backup strategy preview below.</p>

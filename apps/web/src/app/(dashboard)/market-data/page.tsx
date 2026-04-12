@@ -3,21 +3,41 @@
 import InteractiveMarketChart from '@/components/market/InteractiveMarketChart';
 import { marketDataClient } from '@/lib/api-client/market-data.client';
 import {
-    MarketDataBarsQuerySchema,
-    MarketDataTimeframeSchema,
-    type MarketBarDto,
-    type MarketDataTimeframe,
+  MarketDataBarsQuerySchema,
+  type MarketBarDto,
+  type MarketDataTimeframe,
 } from '@vantrade/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const symbolOptions = ['BTCUSD', 'ETHUSD', 'SOLUSD', 'AAPL', 'SPY', 'TSLA'];
-const timeframeOptions = MarketDataTimeframeSchema.options;
+
+// Sensible bar counts per timeframe — auto-selected, no manual input needed
+const TIMEFRAME_LIMITS: Record<MarketDataTimeframe, number> = {
+  '1Min': 120,
+  '5Min': 100,
+  '15Min': 96,
+  '1Hour': 72,
+  '1Day': 90,
+};
+
+// Auto-refresh cadence matched to timeframe granularity
+const TIMEFRAME_REFRESH: Record<MarketDataTimeframe, number> = {
+  '1Min': 10,
+  '5Min': 20,
+  '15Min': 30,
+  '1Hour': 60,
+  '1Day': 300,
+};
+
+const TIMEFRAME_LABELS: Record<MarketDataTimeframe, string> = {
+  '1Min': '1m',
+  '5Min': '5m',
+  '15Min': '15m',
+  '1Hour': '1h',
+  '1Day': '1D',
+};
 
 type ChartMode = 'line' | 'candles';
-
-function formatDateLabel(value: Date): string {
-  return `${value.toLocaleDateString()} ${value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return '-';
@@ -28,14 +48,18 @@ function formatPrice(value: number): string {
 
 export default function MarketDataPage() {
   const [symbol, setSymbol] = useState('BTCUSD');
+  const [customSymbolMode, setCustomSymbolMode] = useState(false);
+  const [customSymbolText, setCustomSymbolText] = useState('');
   const [timeframe, setTimeframe] = useState<MarketDataTimeframe>('1Min');
-  const [limit, setLimit] = useState(120);
   const [chartMode, setChartMode] = useState<ChartMode>('candles');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshSeconds, setRefreshSeconds] = useState(15);
   const [bars, setBars] = useState<MarketBarDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Derived — no manual state needed
+  const limit = TIMEFRAME_LIMITS[timeframe];
+  const refreshSeconds = TIMEFRAME_REFRESH[timeframe];
 
   const loadBars = useCallback(async () => {
     setLoading(true);
@@ -64,221 +88,194 @@ export default function MarketDataPage() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-
-    const intervalMs = Math.max(5, refreshSeconds) * 1000;
-    const id = setInterval(() => {
-      void loadBars();
-    }, intervalMs);
-
+    const id = setInterval(() => void loadBars(), refreshSeconds * 1000);
     return () => clearInterval(id);
   }, [autoRefresh, refreshSeconds, loadBars]);
 
   const summary = useMemo(() => {
     if (bars.length === 0) return null;
-
     const highs = bars.map((bar) => bar.high);
     const lows = bars.map((bar) => bar.low);
-    const volumes = bars.map((bar) => bar.volume);
     const latest = bars.at(-1)!;
     const first = bars.at(0)!;
     const change = latest.close - first.open;
     const changePct = (change / Math.max(first.open, 0.0000001)) * 100;
-
     return {
       latest,
       change,
       changePct,
       max: Math.max(...highs),
       min: Math.min(...lows),
-      avgVolume: volumes.reduce((sum, value) => sum + value, 0) / Math.max(volumes.length, 1),
     };
   }, [bars]);
 
+  function commitCustomSymbol() {
+    const trimmed = customSymbolText.trim().toUpperCase();
+    if (trimmed) setSymbol(trimmed);
+    setCustomSymbolMode(false);
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-2 text-3xl font-bold text-white">Market Data Graph</h1>
-      <p className="mb-8 text-gray-400">
-        Visualize recent OHLC bars for crypto and equities using Alpaca market data.
+      <h1 className="mb-2 text-3xl font-bold text-white">Market Data</h1>
+      <p className="mb-6 text-gray-400">
+        Live OHLC bars for crypto and equities via Alpaca market data.
       </p>
 
-      <section className="mb-6 grid gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 md:grid-cols-4">
-        <div>
-          <label htmlFor="symbol" className="mb-1 block text-sm text-gray-400">Symbol</label>
-          <div className="flex gap-2">
-            <select
-              id="symbol"
-              value={symbol}
-              onChange={(event) => setSymbol(event.target.value)}
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white"
-            >
-              {symbolOptions.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
+      {/* ── Toolbar ── */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-gray-800 bg-gray-900 px-4 py-3">
+
+        {/* Symbol selector */}
+        {!customSymbolMode ? (
+          <select
+            value={symbolOptions.includes(symbol) ? symbol : '__custom__'}
+            onChange={(e) => {
+              if (e.target.value === '__custom__') {
+                setCustomSymbolMode(true);
+                setCustomSymbolText(symbol);
+              } else {
+                setSymbol(e.target.value);
+              }
+            }}
+            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm font-medium text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            {symbolOptions.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+            <option value="__custom__">Custom…</option>
+          </select>
+        ) : (
+          <div className="flex items-center gap-1">
             <input
-              aria-label="Custom symbol"
-              value={symbol}
-              onChange={(event) => setSymbol(event.target.value.toUpperCase())}
-              className="w-32 rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-white"
-              placeholder="Custom"
+              value={customSymbolText}
+              onChange={(e) => setCustomSymbolText(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitCustomSymbol(); }}
+              className="w-24 rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              placeholder="SYMBOL"
+              autoFocus
             />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="timeframe" className="mb-1 block text-sm text-gray-400">Timeframe</label>
-          <select
-            id="timeframe"
-            value={timeframe}
-            onChange={(event) => setTimeframe(event.target.value as MarketDataTimeframe)}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white"
-          >
-            {timeframeOptions.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="limit" className="mb-1 block text-sm text-gray-400">Bars</label>
-          <input
-            id="limit"
-            type="number"
-            min={10}
-            max={500}
-            value={limit}
-            onChange={(event) => setLimit(Number(event.target.value || 120))}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white"
-          />
-        </div>
-
-        <div className="flex items-end">
-          <button
-            onClick={() => void loadBars()}
-            disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
-          >
-            {loading ? 'Loading…' : 'Refresh Graph'}
-          </button>
-        </div>
-      </section>
-
-      <section className="mb-6 grid gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 md:grid-cols-4">
-        <div>
-          <p className="mb-1 block text-sm text-gray-400">Chart Mode</p>
-          <div className="flex gap-2">
             <button
-              onClick={() => setChartMode('candles')}
-              className={`rounded-lg px-3 py-2 text-sm ${chartMode === 'candles' ? 'bg-indigo-600 text-white' : 'border border-gray-700 text-gray-300'}`}
+              onClick={commitCustomSymbol}
+              className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-500"
             >
-              Candles
+              OK
             </button>
             <button
-              onClick={() => setChartMode('line')}
-              className={`rounded-lg px-3 py-2 text-sm ${chartMode === 'line' ? 'bg-indigo-600 text-white' : 'border border-gray-700 text-gray-300'}`}
+              onClick={() => setCustomSymbolMode(false)}
+              className="rounded border border-gray-700 px-2 py-1 text-xs text-gray-400 hover:text-white"
             >
-              Line
+              ✕
             </button>
           </div>
+        )}
+
+        {/* Divider */}
+        <span className="hidden h-5 w-px bg-gray-700 sm:block" />
+
+        {/* Timeframe tab bar — single unified control */}
+        <div className="flex gap-1">
+          {(Object.keys(TIMEFRAME_LABELS) as MarketDataTimeframe[]).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                timeframe === tf
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-700 text-gray-400 hover:text-white'
+              }`}
+            >
+              {TIMEFRAME_LABELS[tf]}
+            </button>
+          ))}
         </div>
 
-        <div>
-          <label htmlFor="auto-refresh" className="mb-1 block text-sm text-gray-400">Auto Refresh</label>
-          <select
-            id="auto-refresh"
-            value={autoRefresh ? 'on' : 'off'}
-            onChange={(event) => setAutoRefresh(event.target.value === 'on')}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white"
+        {/* Divider */}
+        <span className="hidden h-5 w-px bg-gray-700 sm:block" />
+
+        {/* Chart type */}
+        <div className="flex gap-1">
+          {(['candles', 'line'] as ChartMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setChartMode(mode)}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                chartMode === mode
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-700 text-gray-400 hover:text-white'
+              }`}
+            >
+              {mode === 'candles' ? 'Candles' : 'Line'}
+            </button>
+          ))}
+        </div>
+
+        {/* Spacer */}
+        <span className="flex-1" />
+
+        {/* Live / Pause toggle */}
+        <button
+          onClick={() => setAutoRefresh((v) => !v)}
+          className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+            autoRefresh
+              ? 'bg-emerald-800 text-white hover:bg-emerald-700'
+              : 'border border-gray-700 text-gray-400 hover:text-white'
+          }`}
+        >
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              autoRefresh ? 'animate-pulse bg-emerald-400' : 'bg-gray-500'
+            }`}
+          />
+          {autoRefresh ? 'Live' : 'Paused'}
+        </button>
+      </div>
+
+      {/* ── Compact summary strip ── */}
+      {summary && (
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+          <span className="text-2xl font-bold text-white">
+            {formatPrice(summary.latest.close)}
+          </span>
+          <span
+            className={`text-sm font-medium ${summary.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
           >
-            <option value="on">On</option>
-            <option value="off">Off</option>
-          </select>
+            {summary.change >= 0 ? '+' : ''}
+            {formatPrice(summary.change)}&nbsp;
+            ({summary.changePct >= 0 ? '+' : ''}
+            {summary.changePct.toFixed(2)}%)
+          </span>
+          <span className="text-sm text-gray-400">
+            H <span className="text-gray-200">{formatPrice(summary.max)}</span>
+          </span>
+          <span className="text-sm text-gray-400">
+            L <span className="text-gray-200">{formatPrice(summary.min)}</span>
+          </span>
+          {loading && (
+            <span className="animate-pulse text-xs text-gray-500">Refreshing…</span>
+          )}
         </div>
+      )}
 
-        <div>
-          <label htmlFor="refresh-seconds" className="mb-1 block text-sm text-gray-400">Refresh Every (sec)</label>
-          <input
-            id="refresh-seconds"
-            type="number"
-            min={5}
-            max={300}
-            value={refreshSeconds}
-            onChange={(event) => setRefreshSeconds(Number(event.target.value || 15))}
-            disabled={!autoRefresh}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white disabled:opacity-60"
-          />
-        </div>
+      {error && <p className="mb-4 text-sm text-rose-400">{error}</p>}
 
-        <div>
-          <p className="mb-1 block text-sm text-gray-400">Quick Timeframes</p>
-          <div className="grid grid-cols-3 gap-2">
-            {(['1Min', '5Min', '1Hour'] as MarketDataTimeframe[]).map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setTimeframe(tf)}
-                className={`rounded-lg px-2 py-2 text-xs ${timeframe === tf ? 'bg-emerald-700 text-white' : 'border border-gray-700 text-gray-300'}`}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
-
-      {summary ? (
-        <section className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <p className="text-gray-300">
-              Latest close: <span className="font-semibold text-white">{formatPrice(summary.latest.close)}</span>
-            </p>
-            <p className="text-gray-400">
-              Last bar: {formatDateLabel(summary.latest.timestamp)}
-            </p>
-          </div>
-
-          <div className="mb-4 grid gap-3 sm:grid-cols-4">
-            <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-              <p className="text-xs text-gray-500">Change</p>
-              <p className={`text-lg font-semibold ${summary.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {summary.change >= 0 ? '+' : ''}{formatPrice(summary.change)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-              <p className="text-xs text-gray-500">Change %</p>
-              <p className={`text-lg font-semibold ${summary.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {summary.changePct >= 0 ? '+' : ''}{summary.changePct.toFixed(2)}%
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-              <p className="text-xs text-gray-500">High</p>
-              <p className="text-lg font-semibold text-gray-100">{formatPrice(summary.max)}</p>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-              <p className="text-xs text-gray-500">Low</p>
-              <p className="text-lg font-semibold text-gray-100">{formatPrice(summary.min)}</p>
-            </div>
-          </div>
-
-          <InteractiveMarketChart
-            bars={bars}
-            chartMode={chartMode}
-            title={`${symbol} · ${timeframe}`}
-            showRsi
-            rsiPeriod={14}
-            rsiBuyThreshold={30}
-            rsiSellThreshold={70}
-          />
-
-          <div className="mt-4 grid gap-3 text-xs text-gray-400 sm:grid-cols-3">
-            <p>Avg Volume: <span className="text-gray-200">{summary.avgVolume.toFixed(2)}</span></p>
-            <p>Latest: <span className="text-gray-200">{formatPrice(summary.latest.close)}</span></p>
-            <p>Bars loaded: <span className="text-gray-200">{bars.length}</span></p>
-          </div>
-        </section>
+      {/* ── Chart ── */}
+      {bars.length > 0 ? (
+        <InteractiveMarketChart
+          bars={bars}
+          chartMode={chartMode}
+          title={`${symbol} · ${TIMEFRAME_LABELS[timeframe]}`}
+          timeframe={timeframe}
+          showRsi
+          rsiPeriod={14}
+          rsiBuyThreshold={30}
+          rsiSellThreshold={70}
+          showVolume
+          showOhlcvOverlay
+          showXAxis
+          showGridlines
+        />
       ) : (
-        <p className="text-gray-500">No data available for this query.</p>
+        !loading && <p className="text-gray-500">No data available for this query.</p>
       )}
     </main>
   );

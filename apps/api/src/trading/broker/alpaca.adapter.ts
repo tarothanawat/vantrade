@@ -41,6 +41,22 @@ export class AlpacaAdapter implements IBrokerAdapter {
     return [normalized, slashVariant];
   }
 
+  /**
+   * Computes an ISO start date so Alpaca returns enough historical bars.
+   * Uses a 2× buffer to account for weekends, market closure, and holidays.
+   */
+  private calcStartDate(timeframe: MarketDataTimeframe, limit: number): string {
+    const periodMs: Record<MarketDataTimeframe, number> = {
+      '1Min':  60_000,
+      '5Min':  5  * 60_000,
+      '15Min': 15 * 60_000,
+      '1Hour': 60 * 60_000,
+      '1Day':  24 * 60 * 60_000,
+    };
+    const lookbackMs = limit * 2 * periodMs[timeframe];
+    return new Date(Date.now() - lookbackMs).toISOString();
+  }
+
   private toAlpacaTimeframe(timeframe: MarketDataTimeframe): string {
     switch (timeframe) {
       case '1Min':
@@ -97,7 +113,8 @@ export class AlpacaAdapter implements IBrokerAdapter {
     limit: number,
   ): Promise<MarketBarDto[]> {
     const tf = this.toAlpacaTimeframe(timeframe);
-    const url = `${this.cryptoDataBaseUrl}/v2/stocks/bars?symbols=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(tf)}&limit=${limit}`;
+    const start = this.calcStartDate(timeframe, limit);
+    const url = `${this.cryptoDataBaseUrl}/v2/stocks/bars?symbols=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(tf)}&limit=${limit}&start=${encodeURIComponent(start)}`;
     const response = await fetch(url, {
       method: 'GET',
       headers: this.getDataAuthHeaders(),
@@ -131,7 +148,8 @@ export class AlpacaAdapter implements IBrokerAdapter {
   ): Promise<MarketBarDto[]> {
     const tf = this.toAlpacaTimeframe(timeframe);
     const loc = process.env.ALPACA_CRYPTO_DATA_LOC ?? 'us';
-    const url = `${this.cryptoDataBaseUrl}/v1beta3/crypto/${loc}/bars?symbols=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(tf)}&limit=${limit}`;
+    const start = this.calcStartDate(timeframe, limit);
+    const url = `${this.cryptoDataBaseUrl}/v1beta3/crypto/${loc}/bars?symbols=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(tf)}&limit=${limit}&start=${encodeURIComponent(start)}`;
 
     const response = await fetch(url, {
       method: 'GET',
