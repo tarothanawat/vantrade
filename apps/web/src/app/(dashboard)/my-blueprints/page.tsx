@@ -1,6 +1,8 @@
 'use client';
 
 import InteractiveMarketChart from '@/components/market/InteractiveMarketChart';
+import BacktestPanel from '@/components/marketplace/BacktestPanel';
+import BacktestPreviewPanel from '@/components/marketplace/BacktestPreviewPanel';
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
 import { marketDataClient } from '@/lib/api-client/market-data.client';
 import {
@@ -142,6 +144,7 @@ export default function MyBlueprintsPage() {
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState('');
   const [marketChartMode, setMarketChartMode] = useState<'line' | 'candles'>('candles');
+  const [expandedBacktest, setExpandedBacktest] = useState<string | null>(null);
 
   const TIMEFRAME_LIMITS: Record<MarketDataTimeframe, number> = {
     '1Min': 120, '5Min': 100, '15Min': 96, '1Hour': 72, '1Day': 90,
@@ -831,6 +834,10 @@ export default function MyBlueprintsPage() {
             </div>
           </div>
         )}
+
+        {createValidation.success && (
+          <BacktestPreviewPanel params={createValidation.data.parameters} />
+        )}
       </section>
 
       <section>
@@ -872,6 +879,16 @@ export default function MyBlueprintsPage() {
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${bp.isVerified ? 'bg-emerald-900 text-emerald-400' : 'bg-yellow-900 text-yellow-400'}`}>
                         {bp.isVerified ? 'Verified' : 'Pending'}
                       </span>
+                      <button
+                        onClick={() => setExpandedBacktest(expandedBacktest === bp.id ? null : bp.id)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                          expandedBacktest === bp.id
+                            ? 'border-indigo-500 bg-indigo-950 text-indigo-300'
+                            : 'border-gray-700 text-gray-300 hover:border-indigo-500'
+                        }`}
+                      >
+                        {expandedBacktest === bp.id ? 'Hide Backtest' : 'Backtest'}
+                      </button>
                       <button onClick={() => startEdit(bp)} className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs text-gray-300 hover:border-gray-500">
                         Edit
                       </button>
@@ -880,6 +897,16 @@ export default function MyBlueprintsPage() {
                       </button>
                     </div>
                   </div>
+
+                  {expandedBacktest === bp.id && (
+                    <div className="mt-4 border-t border-gray-800 pt-4">
+                      <BacktestPanel
+                        blueprintId={bp.id}
+                        defaultSymbol={params.symbol}
+                        defaultTimeframe={params.executionTimeframe ?? '1Min'}
+                      />
+                    </div>
+                  )}
                 </article>
               );
             })}

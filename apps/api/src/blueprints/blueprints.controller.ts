@@ -6,17 +6,22 @@ import {
     Param,
     Patch,
     Post,
+    Query,
     Request,
     UseGuards,
     UsePipes,
 } from '@nestjs/common';
 import type {
     AuthRequest,
+    BacktestQueryDto,
+    BlueprintBacktestPreviewDto,
     BlueprintCreateDto,
     BlueprintUpdateDto,
     BlueprintVerifyDto,
 } from '@vantrade/types';
 import {
+    BacktestQuerySchema,
+    BlueprintBacktestPreviewSchema,
     BlueprintCreateSchema,
     BlueprintUpdateSchema,
     BlueprintVerifySchema,
@@ -100,5 +105,26 @@ export class BlueprintsController {
   @Get(':id/signal')
   getDryRunSignal(@Param('id') id: string) {
     return this.blueprintsService.getDryRunSignal(id);
+  }
+
+  // TESTER / PROVIDER — backtest a saved blueprint by ID
+  @Get(':id/backtest')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.TESTER, Role.PROVIDER)
+  runBacktest(
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(BacktestQuerySchema)) query: BacktestQueryDto,
+  ) {
+    return this.blueprintsService.runBacktest(id, query);
+  }
+
+  // PROVIDER — backtest using raw parameters (no saved blueprint required)
+  @Post('backtest')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.PROVIDER, Role.TESTER)
+  runBacktestPreview(
+    @Body(new ZodValidationPipe(BlueprintBacktestPreviewSchema)) dto: BlueprintBacktestPreviewDto,
+  ) {
+    return this.blueprintsService.runBacktestPreview(dto);
   }
 }

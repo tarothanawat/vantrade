@@ -114,31 +114,46 @@ export class AlpacaAdapter implements IBrokerAdapter {
   ): Promise<MarketBarDto[]> {
     const tf = this.toAlpacaTimeframe(timeframe);
     const start = this.calcStartDate(timeframe, limit);
-    const url = `${this.cryptoDataBaseUrl}/v2/stocks/bars?symbols=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(tf)}&limit=${limit}&start=${encodeURIComponent(start)}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getDataAuthHeaders(),
-    });
+    const pageSize = Math.min(limit, 10_000);
+    const allBars: MarketBarDto[] = [];
+    let nextPageToken: string | null = null;
 
-    if (!response.ok) {
-      const bodyText = await response.text().catch(() => '');
-      throw new Error(
-        `Failed to fetch stock bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
-      );
-    }
+    do {
+      const url = new URL(`${this.cryptoDataBaseUrl}/v2/stocks/bars`);
+      url.searchParams.set('symbols', symbol);
+      url.searchParams.set('timeframe', tf);
+      url.searchParams.set('limit', String(pageSize));
+      url.searchParams.set('start', start);
+      if (nextPageToken) url.searchParams.set('page_token', nextPageToken);
 
-    const payload = (await response.json()) as unknown;
-    if (typeof payload !== 'object' || payload === null) return [];
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: this.getDataAuthHeaders(),
+      });
 
-    const bars = (payload as Record<string, unknown>)['bars'];
-    if (typeof bars !== 'object' || bars === null) return [];
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '');
+        throw new Error(
+          `Failed to fetch stock bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
+        );
+      }
 
-    const symbolBars = (bars as Record<string, unknown>)[symbol];
-    if (!Array.isArray(symbolBars)) return [];
+      const payload = (await response.json()) as Record<string, unknown>;
+      const bars = payload['bars'];
+      if (typeof bars !== 'object' || bars === null) break;
 
-    return symbolBars
-      .map((row) => this.parseBar(row, symbol))
-      .filter((row): row is MarketBarDto => row !== null);
+      const symbolBars = (bars as Record<string, unknown>)[symbol];
+      if (!Array.isArray(symbolBars)) break;
+
+      const parsed = symbolBars
+        .map((row) => this.parseBar(row, symbol))
+        .filter((row): row is MarketBarDto => row !== null);
+
+      allBars.push(...parsed);
+      nextPageToken = (payload['next_page_token'] as string | null) ?? null;
+    } while (nextPageToken !== null && allBars.length < limit);
+
+    return allBars.slice(0, limit);
   }
 
   private async fetchCryptoBars(
@@ -149,32 +164,46 @@ export class AlpacaAdapter implements IBrokerAdapter {
     const tf = this.toAlpacaTimeframe(timeframe);
     const loc = process.env.ALPACA_CRYPTO_DATA_LOC ?? 'us';
     const start = this.calcStartDate(timeframe, limit);
-    const url = `${this.cryptoDataBaseUrl}/v1beta3/crypto/${loc}/bars?symbols=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(tf)}&limit=${limit}&start=${encodeURIComponent(start)}`;
+    const pageSize = Math.min(limit, 10_000);
+    const allBars: MarketBarDto[] = [];
+    let nextPageToken: string | null = null;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getDataAuthHeaders(),
-    });
+    do {
+      const url = new URL(`${this.cryptoDataBaseUrl}/v1beta3/crypto/${loc}/bars`);
+      url.searchParams.set('symbols', symbol);
+      url.searchParams.set('timeframe', tf);
+      url.searchParams.set('limit', String(pageSize));
+      url.searchParams.set('start', start);
+      if (nextPageToken) url.searchParams.set('page_token', nextPageToken);
 
-    if (!response.ok) {
-      const bodyText = await response.text().catch(() => '');
-      throw new Error(
-        `Failed to fetch crypto bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
-      );
-    }
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: this.getDataAuthHeaders(),
+      });
 
-    const payload = (await response.json()) as unknown;
-    if (typeof payload !== 'object' || payload === null) return [];
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '');
+        throw new Error(
+          `Failed to fetch crypto bars for ${symbol} (${response.status})${bodyText ? `: ${bodyText}` : ''}`,
+        );
+      }
 
-    const bars = (payload as Record<string, unknown>)['bars'];
-    if (typeof bars !== 'object' || bars === null) return [];
+      const payload = (await response.json()) as Record<string, unknown>;
+      const bars = payload['bars'];
+      if (typeof bars !== 'object' || bars === null) break;
 
-    const symbolBars = (bars as Record<string, unknown>)[symbol];
-    if (!Array.isArray(symbolBars)) return [];
+      const symbolBars = (bars as Record<string, unknown>)[symbol];
+      if (!Array.isArray(symbolBars)) break;
 
-    return symbolBars
-      .map((row) => this.parseBar(row, symbol))
-      .filter((row): row is MarketBarDto => row !== null);
+      const parsed = symbolBars
+        .map((row) => this.parseBar(row, symbol))
+        .filter((row): row is MarketBarDto => row !== null);
+
+      allBars.push(...parsed);
+      nextPageToken = (payload['next_page_token'] as string | null) ?? null;
+    } while (nextPageToken !== null && allBars.length < limit);
+
+    return allBars.slice(0, limit);
   }
 
   private isCryptoLikeSymbol(symbol: string): boolean {

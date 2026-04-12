@@ -1,3 +1,4 @@
+import BacktestPanel from '@/components/marketplace/BacktestPanel';
 import SubscribeButton from '@/components/marketplace/SubscribeButton';
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
 import type { Blueprint } from '@vantrade/types';
@@ -65,6 +66,12 @@ export default async function BlueprintDetailPage({ params }: Props) {
 
         <SubscribeButton blueprintId={blueprint.id} />
       </div>
+
+      <BacktestPanel
+        blueprintId={blueprint.id}
+        defaultSymbol={params2.symbol}
+        defaultTimeframe={params2.executionTimeframe ?? '1Min'}
+      />
     </main>
   );
 }

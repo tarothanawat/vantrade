@@ -7,13 +7,19 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import type {
+    BacktestQueryDto,
+    BacktestResultDto,
+    BacktestTradeDto,
+    BlueprintBacktestPreviewDto,
     BlueprintCreateDto,
+    BlueprintParametersDto,
     BlueprintUpdateDto,
     BlueprintVerifyDto,
     IBrokerAdapter,
+    MarketDataTimeframe,
 } from '@vantrade/types';
 import { BlueprintParametersSchema } from '@vantrade/types';
-import { calculateRSI, generateSignal } from '../trading/trading.engine';
+import { calculatePnL, calculateRSI, generateSignal } from '../trading/trading.engine';
 import { BlueprintsRepository } from './blueprints.repository';
 
 @Injectable()
@@ -93,5 +99,113 @@ export class BlueprintsService {
     const price = bars.at(-1)!.close;
 
     return { symbol: params.symbol, rsi, signal, price };
+  }
+
+  async runBacktest(id: string, query: BacktestQueryDto): Promise<BacktestResultDto> {
+    const blueprint = await this.repo.findById(id);
+    if (!blueprint) throw new NotFoundException('Blueprint not found');
+
+    const parsed = BlueprintParametersSchema.safeParse(blueprint.parameters);
+    if (!parsed.success) throw new BadRequestException('Invalid blueprint parameters');
+
+    const params = parsed.data;
+    return this.simulate(
+      params,
+      query.symbol ?? params.symbol,
+      query.timeframe ?? params.executionTimeframe,
+      query.limit,
+    );
+  }
+
+  async runBacktestPreview(dto: BlueprintBacktestPreviewDto): Promise<BacktestResultDto> {
+    const params = dto.parameters;
+    return this.simulate(
+      params,
+      dto.testSymbol ?? params.symbol,
+      dto.testTimeframe ?? params.executionTimeframe,
+      dto.limit,
+    );
+  }
+
+  private async simulate(
+    params: BlueprintParametersDto,
+    symbol: string,
+    timeframe: MarketDataTimeframe,
+    limit: number,
+  ): Promise<BacktestResultDto> {
+    if (limit < params.rsiPeriod + 1) {
+      throw new BadRequestException(
+        `Limit must be at least rsiPeriod + 1 (${params.rsiPeriod + 1}) to compute RSI`,
+      );
+    }
+
+    const bars = await this.broker.getRecentBars(symbol, timeframe, limit);
+
+    if (bars.length < params.rsiPeriod + 1) {
+      throw new BadRequestException(
+        `Not enough bar data for RSI (got ${bars.length}, need ${params.rsiPeriod + 1})`,
+      );
+    }
+
+    const closePrices = bars.map((b) => b.close);
+    const timestamps = bars.map((b) => b.timestamp.toISOString());
+
+    type OpenPosition = { side: 'buy' | 'sell'; entryPrice: number; entryTime: string; entryRsi: number };
+    let openPosition: OpenPosition | null = null;
+    const trades: BacktestTradeDto[] = [];
+    let runningEquity = 0;
+    const equityCurve: { timestamp: string; equity: number }[] = [];
+
+    for (let i = params.rsiPeriod; i < closePrices.length; i++) {
+      const rsi = calculateRSI(closePrices.slice(0, i + 1), params.rsiPeriod);
+      const signal = generateSignal(rsi, params.rsiBuyThreshold, params.rsiSellThreshold);
+      const price = closePrices[i];
+      const time = timestamps[i];
+
+      if (params.executionMode === 'BUY_LOW_SELL_HIGH') {
+        if (signal === 'buy' && openPosition === null) {
+          openPosition = { side: 'buy', entryPrice: price, entryTime: time, entryRsi: rsi };
+        } else if (signal === 'sell' && openPosition?.side === 'buy') {
+          const pnl = calculatePnL(openPosition.entryPrice, price, params.quantity, 'buy');
+          runningEquity += pnl;
+          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice: price, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
+          equityCurve.push({ timestamp: time, equity: runningEquity });
+          openPosition = null;
+        }
+      } else {
+        if (signal === 'sell' && openPosition === null) {
+          openPosition = { side: 'sell', entryPrice: price, entryTime: time, entryRsi: rsi };
+        } else if (signal === 'buy' && openPosition?.side === 'sell') {
+          const pnl = calculatePnL(openPosition.entryPrice, price, params.quantity, 'sell');
+          runningEquity += pnl;
+          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice: price, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
+          equityCurve.push({ timestamp: time, equity: runningEquity });
+          openPosition = null;
+        }
+      }
+    }
+
+    if (openPosition !== null) {
+      trades.push({ entryTime: openPosition.entryTime, exitTime: null, side: openPosition.side, entryPrice: openPosition.entryPrice, exitPrice: null, entryRsi: openPosition.entryRsi, exitRsi: null, pnl: null, isOpen: true });
+    }
+
+    const closedTrades = trades.filter((t) => !t.isOpen);
+    const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+    const winCount = closedTrades.filter((t) => (t.pnl ?? 0) > 0).length;
+    const lossCount = closedTrades.filter((t) => (t.pnl ?? 0) < 0).length;
+    const winRate = winCount + lossCount > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
+
+    return {
+      symbol,
+      timeframe,
+      barsAnalyzed: bars.length,
+      trades,
+      totalPnL,
+      winRate,
+      totalTrades: trades.length,
+      winCount,
+      lossCount,
+      equityCurve,
+    };
   }
 }
