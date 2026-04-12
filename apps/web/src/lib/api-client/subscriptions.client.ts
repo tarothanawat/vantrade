@@ -1,6 +1,7 @@
 import {
   SubscriptionListResponseSchema,
   SubscriptionResponseSchema,
+  SubscriptionStatsResponseSchema,
   type SubscriptionCreateDto,
 } from '@vantrade/types';
 import { apiClient } from './base';
@@ -17,4 +18,7 @@ export const subscriptionsClient = {
 
   remove: (id: string) =>
     apiClient.delete<void>(`/subscriptions/${id}`),
+
+  getStats: (id: string) =>
+    apiClient.get(`/subscriptions/${id}/stats`, undefined, SubscriptionStatsResponseSchema),
 };

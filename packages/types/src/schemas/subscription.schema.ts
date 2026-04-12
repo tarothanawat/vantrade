@@ -22,7 +22,19 @@ export const SubscriptionResponseSchema = z.object({
 
 export const SubscriptionListResponseSchema = z.array(SubscriptionResponseSchema);
 
+export const SubscriptionStatsResponseSchema = z.object({
+  totalTrades: z.number().int().nonnegative(),
+  executedTrades: z.number().int().nonnegative(),
+  buyCount: z.number().int().nonnegative(),
+  sellCount: z.number().int().nonnegative(),
+  holdCount: z.number().int().nonnegative(),
+  totalPnl: z.number(),
+  winCount: z.number().int().nonnegative(),
+  lossCount: z.number().int().nonnegative(),
+});
+
 export type SubscriptionCreateDto = z.infer<typeof SubscriptionCreateSchema>;
 export type SubscriptionToggleDto = z.infer<typeof SubscriptionToggleSchema>;
 export type SubscriptionResponseDto = z.infer<typeof SubscriptionResponseSchema>;
 export type SubscriptionListResponseDto = z.infer<typeof SubscriptionListResponseSchema>;
+export type SubscriptionStatsResponseDto = z.infer<typeof SubscriptionStatsResponseSchema>;
