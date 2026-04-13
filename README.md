@@ -2,6 +2,75 @@
 
 A multi-tenant algorithmic trading strategy marketplace built as a pnpm monorepo with **NestJS** (API) and **Next.js 14** (web).
 
+Strategy **Providers** publish parameterized RSI-based Blueprints. **Testers** subscribe and execute them automatically against their personal Alpaca Paper Trading accounts. **Admins** verify Blueprints before they appear on the marketplace.
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| **API** | NestJS 10, TypeScript 5 |
+| **Web** | Next.js 14, React 18, Tailwind CSS |
+| **Database** | PostgreSQL (via Prisma 5 ORM) |
+| **Auth** | JWT (Passport.js), bcryptjs |
+| **Broker** | Alpaca Paper Trading API |
+| **Validation** | Zod (shared `@vantrade/types` package) |
+| **Encryption** | AES-256-GCM (Node.js `crypto`) |
+| **Build** | pnpm workspaces, Turborepo |
+| **Testing** | Jest, ts-jest, Supertest |
+| **Rate Limiting** | `@nestjs/throttler` |
+| **Scheduling** | `@nestjs/schedule` (cron) |
+
+---
+
+## User Roles & Permissions
+
+| Role | Responsibilities | Permitted Operations |
+|---|---|---|
+| **TESTER** | Subscribes to Blueprints and executes them against their own Alpaca paper account | Browse marketplace · Subscribe/unsubscribe · Toggle subscription active state · Store & manage Alpaca API keys · View own trade logs & P&L stats · View open positions |
+| **PROVIDER** | Publishes parameterized trading Blueprints for Testers to use | All TESTER permissions · Create / edit / delete own Blueprints · Run dry-run previews · Run backtests |
+| **ADMIN** | Governs the marketplace and audits activity | All PROVIDER permissions · Verify / reject any Blueprint · View all users and all Blueprints |
+
+> **Registration** always assigns `TESTER`. Role upgrades are performed by an Admin only — role is never accepted from the request body.
+
+---
+
+## System Architecture Overview
+
+VanTrade enforces **Hexagonal Architecture (Ports & Adapters)** in the trading subsystem and the **Repository Pattern** for database access throughout.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    apps/web  (Next.js)                  │
+│   Pages → api-client/ fetch wrappers → NestJS REST API  │
+└─────────────────────────────────────────────────────────┘
+                           │ HTTP / JSON
+┌─────────────────────────────────────────────────────────┐
+│                    apps/api  (NestJS)                   │
+│                                                         │
+│  Controller → Service → Repository → PrismaService      │
+│                  │                                      │
+│           HeartbeatService  (cron, every 60s)           │
+│                  │                                      │
+│    Domain: trading.engine.ts (pure functions)           │
+│    Port:   IBrokerAdapter  (interface)                  │
+│    Adapter: AlpacaAdapter  (only Alpaca SDK importer)   │
+└─────────────────────────────────────────────────────────┘
+                           │
+                    PostgreSQL (Prisma)
+```
+
+Key architectural patterns:
+
+- **Hexagonal (Ports & Adapters):** `trading.engine.ts` is pure functions only. `IBrokerAdapter` is the port. `AlpacaAdapter` is the only file that imports the Alpaca SDK. Swap brokers by writing one new file.
+- **Repository Pattern:** One `*.repository.ts` per feature — the only files allowed to use `PrismaService`.
+- **Thin Controllers:** Controllers do exactly three things — validate with `ZodValidationPipe`, call one service method, return the result.
+- **Append-Only Trade Ledger:** `TradeLog` rows are never updated or deleted — immutable audit trail.
+- **AES-256-GCM Credential Encryption:** Broker API keys are encrypted at rest. Decrypted values are computed in-memory at order time only.
+
+See [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) for a full architectural write-up.
+
 ---
 
 ## Project Structure
@@ -12,9 +81,8 @@ vantrade/
 │   ├── api/        # NestJS backend — all business logic, Prisma, Alpaca SDK
 │   └── web/        # Next.js 14 frontend — UI only, calls NestJS REST API
 ├── packages/
-│   └── types/      # Shared Zod schemas and TypeScript interfaces
-├── prisma/
-│   └── schema.prisma
+│   └── types/      # Shared Zod schemas and TypeScript interfaces (@vantrade/types)
+├── docs/           # Architecture report, SRS, risk assessment
 └── turbo.json
 ```
 
@@ -28,11 +96,9 @@ vantrade/
 
 ---
 
-## Database options
+## Database Setup
 
 ### Option A — Local PostgreSQL
-
-Install PostgreSQL locally and use a connection string like:
 
 ```
 DATABASE_URL="postgresql://postgres:password@localhost:5432/vantrade"
@@ -52,7 +118,7 @@ DATABASE_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432
 
 ---
 
-## Setup
+## Installation & Setup
 
 ### 1. Install dependencies
 ```bash
@@ -61,16 +127,17 @@ pnpm install
 
 ### 2. Configure environment variables
 
-**API:**
+**API (`apps/api/.env`):**
 ```bash
 cp apps/api/.env.example apps/api/.env
-# Edit apps/api/.env — fill in DATABASE_URL, ENCRYPTION_KEY, JWT_SECRET, ALPACA_API_KEY/SECRET
+# Fill in: DATABASE_URL, ENCRYPTION_KEY, JWT_SECRET, ALPACA_API_KEY, ALPACA_API_SECRET
+# Optional: WEB_URL, PORT (default 4000), MARKET_TIMEZONE (default America/New_York)
 ```
 
-**Web:**
+**Web (`apps/web/.env.local`):**
 ```bash
 cp apps/web/.env.local.example apps/web/.env.local
-# Edit apps/web/.env.local — set NEXT_PUBLIC_API_URL if needed (default: http://localhost:4000)
+# Set NEXT_PUBLIC_API_URL=http://localhost:4000
 ```
 
 ### 3. Run database migrations
@@ -83,7 +150,8 @@ pnpm --filter api prisma:migrate
 pnpm --filter api prisma:seed
 ```
 
-This creates three seed users:
+Seed users:
+
 | Email | Password | Role |
 |---|---|---|
 | admin@vantrade.io | Admin1234! | ADMIN |
@@ -92,19 +160,22 @@ This creates three seed users:
 
 ---
 
-## Running the apps
+## Running the System
 
 ### Both apps simultaneously
 ```bash
 pnpm dev
 ```
 
-### API only (http://localhost:4000)
+- API: http://localhost:4000
+- Web: http://localhost:3000
+
+### API only
 ```bash
 pnpm --filter api dev
 ```
 
-### Web only (http://localhost:3000)
+### Web only
 ```bash
 pnpm --filter web dev
 ```
@@ -119,30 +190,52 @@ pnpm test
 
 # Run tests with coverage (target ≥ 80% on apps/api/src/trading/)
 pnpm test:coverage
+
+# API tests only
+pnpm --filter api test
+
+# Web tests only
+pnpm --filter web test
 ```
 
 ---
 
-## Key Endpoints
+## Key API Endpoints
 
 | Method | Path | Role | Description |
 |---|---|---|---|
-| POST | `/api/auth/register` | Public | Register a new user |
+| POST | `/api/auth/register` | Public | Register a new user (always TESTER) |
 | POST | `/api/auth/login` | Public | Login, receive JWT |
 | GET | `/api/blueprints` | Public | List verified blueprints |
 | POST | `/api/blueprints` | PROVIDER | Create a blueprint |
+| GET | `/api/blueprints/:id/backtest` | PROVIDER | Backtest a blueprint |
 | PATCH | `/api/blueprints/:id/verify` | ADMIN | Verify a blueprint |
 | GET | `/api/subscriptions` | TESTER | List my subscriptions |
 | POST | `/api/subscriptions` | TESTER | Subscribe to a blueprint |
+| GET | `/api/subscriptions/:id/stats` | TESTER | Trade stats for a subscription |
 | POST | `/api/api-keys` | TESTER | Store Alpaca API key |
+| GET | `/api/api-keys` | TESTER | List stored API keys |
+| GET | `/api/positions` | TESTER | View open positions |
+| GET | `/api/market-data/bars` | TESTER | Fetch OHLCV bars |
 
 ---
 
-## Architecture
+## Screenshots
 
-See [AGENTS.md](AGENTS.md) for full architecture documentation including:
-- Hexagonal architecture patterns (Ports & Adapters)
-- Repository pattern
-- RBAC enforcement
-- Heartbeat cron execution loop
-- AES-256-GCM key encryption
+### Login
+![Login](docs/screenshots/login.png)
+
+### Marketplace (Blueprint Listing)
+![Marketplace](docs/screenshots/marketplace.png)
+
+### Blueprint Detail & Backtest
+![Backtest](docs/screenshots/backtest.png)
+
+### Tester Dashboard — Active Subscriptions
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Trade Logs
+![Trade Logs](docs/screenshots/trade-logs.png)
+
+### Admin — Blueprint Verification
+![Admin](docs/screenshots/admin.png)

@@ -107,10 +107,10 @@ export class BlueprintsController {
     return this.blueprintsService.getDryRunSignal(id);
   }
 
-  // TESTER / PROVIDER — backtest a saved blueprint by ID
+  // TESTER / PROVIDER / ADMIN — backtest a saved blueprint by ID
   @Get(':id/backtest')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.TESTER, Role.PROVIDER)
+  @Roles(Role.TESTER, Role.PROVIDER, Role.ADMIN)
   runBacktest(
     @Param('id') id: string,
     @Query(new ZodValidationPipe(BacktestQuerySchema)) query: BacktestQueryDto,
@@ -118,10 +118,10 @@ export class BlueprintsController {
     return this.blueprintsService.runBacktest(id, query);
   }
 
-  // PROVIDER — backtest using raw parameters (no saved blueprint required)
+  // PROVIDER / ADMIN — backtest using raw parameters (no saved blueprint required)
   @Post('backtest')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.PROVIDER, Role.TESTER)
+  @Roles(Role.PROVIDER, Role.TESTER, Role.ADMIN)
   runBacktestPreview(
     @Body(new ZodValidationPipe(BlueprintBacktestPreviewSchema)) dto: BlueprintBacktestPreviewDto,
   ) {
