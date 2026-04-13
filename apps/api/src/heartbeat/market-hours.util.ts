@@ -1,6 +1,8 @@
 import type { MarketDataTimeframe } from '@vantrade/types';
 
-const US_MARKET_TIMEZONE = 'America/New_York';
+// Configurable via MARKET_TIMEZONE env var; defaults to US Eastern time.
+// Example: MARKET_TIMEZONE=Europe/London for LSE-listed instruments.
+const US_MARKET_TIMEZONE = process.env.MARKET_TIMEZONE ?? 'America/New_York';
 
 export function getEasternTimeParts(now: Date = new Date()): {
   weekday: string;
