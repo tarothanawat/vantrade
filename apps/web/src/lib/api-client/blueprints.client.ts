@@ -3,8 +3,11 @@ import {
   BlueprintListResponseSchema,
   BlueprintResponseSchema,
   type BacktestQueryDto,
+  type BacktestResultDto,
   type BlueprintBacktestPreviewDto,
   type BlueprintCreateDto,
+  type BlueprintListResponseDto,
+  type BlueprintResponseDto,
   type BlueprintUpdateDto,
 } from '@vantrade/types';
 import { apiClient } from './base';
@@ -19,32 +22,32 @@ function toQueryString(obj: Partial<Record<string, string | number | undefined>>
 
 export const blueprintsClient = {
   getAll: () =>
-    apiClient.get('/blueprints', undefined, BlueprintListResponseSchema),
+    apiClient.get<BlueprintListResponseDto>('/blueprints', undefined, BlueprintListResponseSchema),
 
   getAllAdmin: () =>
-    apiClient.get('/blueprints/admin/all', undefined, BlueprintListResponseSchema),
+    apiClient.get<BlueprintListResponseDto>('/blueprints/admin/all', undefined, BlueprintListResponseSchema),
 
   getById: (id: string) =>
-    apiClient.get(`/blueprints/${id}`, undefined, BlueprintResponseSchema),
+    apiClient.get<BlueprintResponseDto>(`/blueprints/${id}`, undefined, BlueprintResponseSchema),
 
   getMine: () =>
-    apiClient.get('/blueprints/my/list', undefined, BlueprintListResponseSchema),
+    apiClient.get<BlueprintListResponseDto>('/blueprints/my/list', undefined, BlueprintListResponseSchema),
 
   create: (dto: BlueprintCreateDto) =>
-    apiClient.post('/blueprints', dto, undefined, BlueprintResponseSchema),
+    apiClient.post<BlueprintResponseDto>('/blueprints', dto, undefined, BlueprintResponseSchema),
 
   update: (id: string, dto: BlueprintUpdateDto) =>
-    apiClient.patch(`/blueprints/${id}`, dto, undefined, BlueprintResponseSchema),
+    apiClient.patch<BlueprintResponseDto>(`/blueprints/${id}`, dto, undefined, BlueprintResponseSchema),
 
   remove: (id: string) =>
     apiClient.delete<void>(`/blueprints/${id}`),
 
   verify: (id: string, isVerified: boolean) =>
-    apiClient.patch(`/blueprints/${id}/verify`, { isVerified }, undefined, BlueprintResponseSchema),
+    apiClient.patch<BlueprintResponseDto>(`/blueprints/${id}/verify`, { isVerified }, undefined, BlueprintResponseSchema),
 
   runBacktest: (id: string, query: Partial<BacktestQueryDto>) =>
-    apiClient.get(`/blueprints/${id}/backtest?${toQueryString(query)}`, undefined, BacktestResultSchema),
+    apiClient.get<BacktestResultDto>(`/blueprints/${id}/backtest?${toQueryString(query)}`, undefined, BacktestResultSchema),
 
   previewBacktest: (dto: BlueprintBacktestPreviewDto) =>
-    apiClient.post('/blueprints/backtest', dto, undefined, BacktestResultSchema),
+    apiClient.post<BacktestResultDto>('/blueprints/backtest', dto, undefined, BacktestResultSchema),
 };

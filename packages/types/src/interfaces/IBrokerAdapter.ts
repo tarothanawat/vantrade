@@ -1,11 +1,19 @@
 import { OrderSide, OrderStatus } from '../enums';
 import type { MarketBarDto, MarketDataTimeframe } from '../schemas/market-data.schema';
 
+export interface LimitOrderDetails {
+  limitPrice: number;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+}
+
 export interface OrderParams {
   symbol: string;
   side: OrderSide;
   quantity: number;
   accountId: string;
+  /** Present → bracket limit order (ICT path). Absent → market order (RSI path). */
+  limitOrder?: LimitOrderDetails;
 }
 
 export interface OrderResult {

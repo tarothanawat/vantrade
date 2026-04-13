@@ -3,7 +3,9 @@
  * All requests go here; no business logic lives in the web app.
  */
 
-import type { ZodType } from 'zod';
+interface ParseableSchema<T> {
+  safeParse: (data: unknown) => { success: true; data: T } | { success: false; error: unknown };
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -21,7 +23,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
   token?: string,
-  schema?: ZodType<T>,
+  schema?: ParseableSchema<T>,
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -57,15 +59,15 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(path: string, token?: string, schema?: ZodType<T>) =>
+  get: <T>(path: string, token?: string, schema?: ParseableSchema<T>) =>
     request<T>(path, { method: 'GET' }, token, schema),
 
-  post: <T>(path: string, body: unknown, token?: string, schema?: ZodType<T>) =>
+  post: <T>(path: string, body: unknown, token?: string, schema?: ParseableSchema<T>) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }, token, schema),
 
-  patch: <T>(path: string, body: unknown, token?: string, schema?: ZodType<T>) =>
+  patch: <T>(path: string, body: unknown, token?: string, schema?: ParseableSchema<T>) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }, token, schema),
 
-  delete: <T>(path: string, token?: string, schema?: ZodType<T>) =>
+  delete: <T>(path: string, token?: string, schema?: ParseableSchema<T>) =>
     request<T>(path, { method: 'DELETE' }, token, schema),
 };

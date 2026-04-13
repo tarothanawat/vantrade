@@ -333,6 +333,18 @@ export class AlpacaAdapter implements IBrokerAdapter {
   ): Promise<OrderResult> {
     const client = this.buildClient(apiKey, apiSecret);
     const symbolCandidates = getStockSymbolCandidates(params.symbol);
+
+    if (params.limitOrder) {
+      return this.placeBracketLimitOrder(client, params, symbolCandidates);
+    }
+    return this.placeMarketOrder(client, params, symbolCandidates);
+  }
+
+  private async placeMarketOrder(
+    client: Alpaca,
+    params: OrderParams,
+    symbolCandidates: string[],
+  ): Promise<OrderResult> {
     let order: Record<string, unknown> | null = null;
     let placedSymbol = params.symbol;
     let lastError: Error | null = null;
@@ -363,7 +375,63 @@ export class AlpacaAdapter implements IBrokerAdapter {
     }
 
     this.logger.log(
-      `Order placed: ${params.side.toUpperCase()} ${params.quantity} ${placedSymbol} — orderId=${order['id']}`,
+      `Market order placed: ${params.side.toUpperCase()} ${params.quantity} ${placedSymbol} — orderId=${order['id']}`,
+    );
+
+    return {
+      orderId: order['id'] as string,
+      symbol: order['symbol'] as string,
+      side: order['side'] as OrderSide,
+      quantity: Number(order['qty']),
+      filledPrice: Number(order['filled_avg_price'] ?? 0),
+      status: (order['status'] as OrderStatus) ?? OrderStatus.PENDING,
+    };
+  }
+
+  private async placeBracketLimitOrder(
+    client: Alpaca,
+    params: OrderParams,
+    symbolCandidates: string[],
+  ): Promise<OrderResult> {
+    const { limitPrice, stopLossPrice, takeProfitPrice } = params.limitOrder!;
+    let order: Record<string, unknown> | null = null;
+    let placedSymbol = params.symbol;
+    let lastError: Error | null = null;
+
+    for (const candidate of symbolCandidates) {
+      try {
+        order = (await client.createOrder({
+          symbol: candidate,
+          qty: params.quantity,
+          side: params.side,
+          type: 'limit',
+          time_in_force: 'day',
+          order_class: 'bracket',
+          limit_price: limitPrice,
+          stop_loss: { stop_price: stopLossPrice },
+          take_profit: { limit_price: takeProfitPrice },
+        })) as Record<string, unknown>;
+        placedSymbol = candidate;
+        break;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Unknown Alpaca order error');
+        lastError = error;
+        this.logger.warn(
+          `Bracket order placement failed for symbol variant ${candidate}: ${error.message}`,
+        );
+      }
+    }
+
+    if (!order) {
+      const tried = symbolCandidates.join(', ');
+      throw new Error(
+        `Failed to place bracket order for ${params.symbol}. Tried: ${tried}${lastError ? ` (${lastError.message})` : ''}`,
+      );
+    }
+
+    this.logger.log(
+      `Bracket limit order placed: ${params.side.toUpperCase()} ${params.quantity} ${placedSymbol}` +
+        ` limit=${limitPrice} sl=${stopLossPrice} tp=${takeProfitPrice} — orderId=${order['id']}`,
     );
 
     return {

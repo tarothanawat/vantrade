@@ -248,7 +248,10 @@ export default function MyBlueprintsPage() {
       return null;
     }
 
-    if (parsed.data.parameters.rsiBuyThreshold >= parsed.data.parameters.rsiSellThreshold) {
+    if (
+      parsed.data.parameters.strategyType === 'RSI' &&
+      parsed.data.parameters.rsiBuyThreshold >= parsed.data.parameters.rsiSellThreshold
+    ) {
       setError('Buy threshold must be lower than sell threshold.');
       return null;
     }
@@ -264,8 +267,7 @@ export default function MyBlueprintsPage() {
     }
 
     if (
-      parsed.data.parameters?.rsiBuyThreshold !== undefined &&
-      parsed.data.parameters?.rsiSellThreshold !== undefined &&
+      parsed.data.parameters?.strategyType === 'RSI' &&
       parsed.data.parameters.rsiBuyThreshold >= parsed.data.parameters.rsiSellThreshold
     ) {
       setError('Buy threshold must be lower than sell threshold.');

@@ -1,4 +1,7 @@
 import { Role } from '../enums';
+import type { BlueprintParametersDto } from '../schemas/blueprint.schema';
+
+export type BlueprintParameters = BlueprintParametersDto;
 
 export interface JwtPayload {
   sub: string;
@@ -24,16 +27,6 @@ export interface Blueprint {
   authorId: string;
 }
 
-export interface BlueprintParameters {
-  symbol: string;
-  executionTimeframe?: '1Min' | '5Min' | '15Min' | '1Hour' | '1Day';
-  executionMode?: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
-  rsiPeriod: number;
-  rsiBuyThreshold: number;
-  rsiSellThreshold: number;
-  maPeriod: number;
-  quantity: number;
-}
 
 export interface Subscription {
   id: string;

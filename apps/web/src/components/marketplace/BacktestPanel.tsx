@@ -75,7 +75,7 @@ function TradeRow({ trade, index }: { trade: BacktestTradeDto; index: number }) 
       <td className="py-2 pr-3">
         <div className="text-gray-300">{trade.entryPrice.toFixed(2)}</div>
         <div className="text-gray-500">{formatBarTime(trade.entryTime)}</div>
-        <div className="text-indigo-400">RSI {trade.entryRsi.toFixed(1)}</div>
+        {trade.entryRsi != null && <div className="text-indigo-400">RSI {trade.entryRsi.toFixed(1)}</div>}
       </td>
       <td className="py-2 pr-3">
         {trade.exitPrice != null && trade.exitTime != null ? (

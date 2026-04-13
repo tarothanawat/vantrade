@@ -35,14 +35,14 @@ describe('PositionsService.getPositions()', () => {
   });
 
   it('throws NotFoundException when the user has no API key configured', async () => {
-    mockRepo.findByUser.mockResolvedValue(null);
+    mockRepo.findByUser.mockResolvedValue([] as never);
 
     await expect(service.getPositions('user-1')).rejects.toBeInstanceOf(NotFoundException);
     expect(mockBroker.getPositionsWithCredentials).not.toHaveBeenCalled();
   });
 
   it('decrypts stored credentials before calling the broker', async () => {
-    mockRepo.findByUser.mockResolvedValue(STORED_KEY as never);
+    mockRepo.findByUser.mockResolvedValue([STORED_KEY] as never);
     mockBroker.getPositionsWithCredentials.mockResolvedValue([]);
 
     await service.getPositions('user-1');
@@ -53,7 +53,7 @@ describe('PositionsService.getPositions()', () => {
   });
 
   it('returns the positions array from the broker', async () => {
-    mockRepo.findByUser.mockResolvedValue(STORED_KEY as never);
+    mockRepo.findByUser.mockResolvedValue([STORED_KEY] as never);
     mockBroker.getPositionsWithCredentials.mockResolvedValue(MOCK_POSITIONS);
 
     const result = await service.getPositions('user-1');
@@ -62,7 +62,7 @@ describe('PositionsService.getPositions()', () => {
   });
 
   it('returns an empty array when the user has no open positions', async () => {
-    mockRepo.findByUser.mockResolvedValue(STORED_KEY as never);
+    mockRepo.findByUser.mockResolvedValue([STORED_KEY] as never);
     mockBroker.getPositionsWithCredentials.mockResolvedValue([]);
 
     await expect(service.getPositions('user-1')).resolves.toEqual([]);

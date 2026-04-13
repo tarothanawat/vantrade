@@ -12,7 +12,8 @@ export class PositionsService {
   ) {}
 
   async getPositions(userId: string) {
-    const key = await this.apiKeysRepo.findByUser(userId);
+    const keys = await this.apiKeysRepo.findByUser(userId);
+    const key = keys.find((k) => k.label === 'default') ?? keys[0];
     if (!key) throw new NotFoundException('No API key configured');
 
     const apiKey = this.encryption.decrypt(key.encryptedKey);
