@@ -125,7 +125,7 @@ describe('BlueprintsService.getDryRunSignal()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(HOLD_BARS);
 
-    const result = await service.getDryRunSignal('bp-1');
+    const result = await service.getDryRunSignal('bp-1') as { symbol: string; signal: TradeSignal; price: number; rsi: number };
 
     expect(result.symbol).toBe('BTCUSD');
     expect(result.signal).toBe(TradeSignal.HOLD);
@@ -137,7 +137,7 @@ describe('BlueprintsService.getDryRunSignal()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(BUY_BARS);
 
-    const result = await service.getDryRunSignal('bp-1');
+    const result = await service.getDryRunSignal('bp-1') as { signal: TradeSignal; rsi: number; price: number };
 
     expect(result.signal).toBe(TradeSignal.BUY);
     expect(result.rsi).toBeLessThanOrEqual(30);
@@ -148,7 +148,7 @@ describe('BlueprintsService.getDryRunSignal()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(SELL_BARS);
 
-    const result = await service.getDryRunSignal('bp-1');
+    const result = await service.getDryRunSignal('bp-1') as { signal: TradeSignal; rsi: number; price: number };
 
     expect(result.signal).toBe(TradeSignal.SELL);
     expect(result.rsi).toBeGreaterThanOrEqual(70);
@@ -179,21 +179,21 @@ describe('BlueprintsService.runBacktest()', () => {
   it('throws NotFoundException when blueprint does not exist', async () => {
     mockRepo.findById.mockResolvedValue(null);
 
-    await expect(service.runBacktest('bp-missing', { limit: 200 })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.runBacktest('bp-missing', { limit: 200, slippagePct: 0, commissionPerTrade: 0 })).rejects.toBeInstanceOf(NotFoundException);
     expect(mockBroker.getRecentBars).not.toHaveBeenCalled();
   });
 
   it('throws BadRequestException when blueprint parameters are invalid', async () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint({ symbol: '' }) as never);
 
-    await expect(service.runBacktest('bp-1', { limit: 200 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 })).rejects.toBeInstanceOf(BadRequestException);
     expect(mockBroker.getRecentBars).not.toHaveBeenCalled();
   });
 
   it('throws BadRequestException when limit is less than rsiPeriod + 1', async () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never); // rsiPeriod=3, needs limit≥4
 
-    await expect(service.runBacktest('bp-1', { limit: 3 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.runBacktest('bp-1', { limit: 3, slippagePct: 0, commissionPerTrade: 0 })).rejects.toBeInstanceOf(BadRequestException);
     expect(mockBroker.getRecentBars).not.toHaveBeenCalled();
   });
 
@@ -201,14 +201,14 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(BUY_ONLY_BARS.slice(0, 2)); // only 2, need 4
 
-    await expect(service.runBacktest('bp-1', { limit: 200 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('uses symbol override from query instead of blueprint symbol', async () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(TRADE_CYCLE_BARS);
 
-    await service.runBacktest('bp-1', { symbol: 'AAPL', limit: 200 });
+    await service.runBacktest('bp-1', { symbol: 'AAPL', limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(mockBroker.getRecentBars).toHaveBeenCalledWith('AAPL', expect.any(String), expect.any(Number));
   });
@@ -217,7 +217,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(TRADE_CYCLE_BARS);
 
-    await service.runBacktest('bp-1', { limit: 200 });
+    await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(mockBroker.getRecentBars).toHaveBeenCalledWith('BTCUSD', expect.any(String), expect.any(Number));
   });
@@ -226,7 +226,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never); // BUY_LOW_SELL_HIGH, qty=1
     mockBroker.getRecentBars.mockResolvedValue(TRADE_CYCLE_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(result.totalTrades).toBe(1);
     expect(result.trades[0].side).toBe('buy');
@@ -244,7 +244,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(TRADE_CYCLE_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
     const trade = result.trades[0];
 
     // Entry RSI triggered BUY (must be ≤ rsiBuyThreshold=30)
@@ -260,7 +260,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(BUY_ONLY_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
     const trade = result.trades[0];
 
     expect(trade.entryRsi).toBeLessThanOrEqual(30);
@@ -274,7 +274,7 @@ describe('BlueprintsService.runBacktest()', () => {
     );
     mockBroker.getRecentBars.mockResolvedValue(SHORT_CYCLE_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(result.totalTrades).toBe(1);
     expect(result.trades[0].side).toBe('sell');
@@ -289,7 +289,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(BUY_ONLY_BARS); // BUY at i=3, no SELL follows
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(result.totalTrades).toBe(1);
     expect(result.trades[0].isOpen).toBe(true);
@@ -305,7 +305,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(BUY_ONLY_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(result.winRate).toBe(0);
   });
@@ -314,7 +314,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(TRADE_CYCLE_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(result.equityCurve).toHaveLength(1);
     expect(result.equityCurve[0].equity).toBe(30);
@@ -324,7 +324,7 @@ describe('BlueprintsService.runBacktest()', () => {
     mockRepo.findById.mockResolvedValue(makeBlueprint() as never);
     mockBroker.getRecentBars.mockResolvedValue(TRADE_CYCLE_BARS);
 
-    const result = await service.runBacktest('bp-1', { limit: 200 });
+    const result = await service.runBacktest('bp-1', { limit: 200, slippagePct: 0, commissionPerTrade: 0 });
 
     expect(result.barsAnalyzed).toBe(TRADE_CYCLE_BARS.length);
   });

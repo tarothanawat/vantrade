@@ -12,14 +12,22 @@ import type {
     BacktestTradeDto,
     BlueprintBacktestPreviewDto,
     BlueprintCreateDto,
-    BlueprintParametersDto,
     BlueprintUpdateDto,
     BlueprintVerifyDto,
     IBrokerAdapter,
+    IctParametersDto,
     MarketDataTimeframe,
+    RsiParametersDto,
 } from '@vantrade/types';
-import { BlueprintParametersSchema } from '@vantrade/types';
-import { calculatePnL, calculateRSI, generateSignal } from '../trading/trading.engine';
+import { BlueprintParametersSchema, OrderSide, TradeSignal } from '@vantrade/types';
+import {
+    aggregateBars,
+    calculatePnL,
+    calculateRSI,
+    checkLimitOrderFill,
+    generateIctSignal,
+    generateSignal,
+} from '../trading/trading.engine';
 import { BlueprintsRepository } from './blueprints.repository';
 
 @Injectable()
@@ -84,6 +92,14 @@ export class BlueprintsService {
     if (!parsed.success) throw new BadRequestException('Invalid blueprint parameters');
 
     const params = parsed.data;
+
+    if (params.strategyType === 'ICT') {
+      return this.getDryRunIctSignal(params);
+    }
+    return this.getDryRunRsiSignal(params);
+  }
+
+  private async getDryRunRsiSignal(params: RsiParametersDto) {
     const requiredBars = params.rsiPeriod + 1;
     const bars = await this.broker.getRecentBars(params.symbol, params.executionTimeframe, requiredBars);
 
@@ -101,6 +117,33 @@ export class BlueprintsService {
     return { symbol: params.symbol, rsi, signal, price };
   }
 
+  private async getDryRunIctSignal(params: IctParametersDto) {
+    const BAR_LIMIT = 60;
+    const [h1Bars, m15Bars, m5Bars] = await Promise.all([
+      this.broker.getRecentBars(params.symbol, '1Hour', BAR_LIMIT),
+      this.broker.getRecentBars(params.symbol, '15Min', BAR_LIMIT),
+      this.broker.getRecentBars(params.symbol, '5Min',  BAR_LIMIT),
+    ]);
+
+    const result = generateIctSignal({
+      h1Bars,
+      m15Bars,
+      m5Bars,
+      params,
+      currentTime: new Date(),
+    });
+
+    return {
+      symbol: params.symbol,
+      signal: result.signal,
+      reason: result.reason,
+      limitPrice: result.limitPrice,
+      stopLossPrice: result.stopLossPrice,
+      takeProfitPrice: result.takeProfitPrice,
+      price: m5Bars.at(-1)?.close ?? 0,
+    };
+  }
+
   async runBacktest(id: string, query: BacktestQueryDto): Promise<BacktestResultDto> {
     const blueprint = await this.repo.findById(id);
     if (!blueprint) throw new NotFoundException('Blueprint not found');
@@ -109,7 +152,12 @@ export class BlueprintsService {
     if (!parsed.success) throw new BadRequestException('Invalid blueprint parameters');
 
     const params = parsed.data;
-    return this.simulate(
+
+    if (params.strategyType === 'ICT') {
+      return this.simulateIct(params, query.symbol ?? params.symbol, query.limit, query.slippagePct, query.commissionPerTrade);
+    }
+
+    return this.simulateRsi(
       params,
       query.symbol ?? params.symbol,
       query.timeframe ?? params.executionTimeframe,
@@ -121,7 +169,12 @@ export class BlueprintsService {
 
   async runBacktestPreview(dto: BlueprintBacktestPreviewDto): Promise<BacktestResultDto> {
     const params = dto.parameters;
-    return this.simulate(
+
+    if (params.strategyType === 'ICT') {
+      return this.simulateIct(params, dto.testSymbol ?? params.symbol, dto.limit, dto.slippagePct, dto.commissionPerTrade);
+    }
+
+    return this.simulateRsi(
       params,
       dto.testSymbol ?? params.symbol,
       dto.testTimeframe ?? params.executionTimeframe,
@@ -131,8 +184,8 @@ export class BlueprintsService {
     );
   }
 
-  private async simulate(
-    params: BlueprintParametersDto,
+  private async simulateRsi(
+    params: RsiParametersDto,
     symbol: string,
     timeframe: MarketDataTimeframe,
     limit: number,
@@ -180,7 +233,7 @@ export class BlueprintsService {
           const filledPrice = price * (1 - slippageFactor);
           const pnl = calculatePnL(openPosition.entryPrice, filledPrice, params.quantity, 'buy') - commissionPerTrade * 2;
           runningEquity += pnl;
-          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
+          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, entryContext: null, exitReason: null, pnl, isOpen: false });
           equityCurve.push({ timestamp: time, equity: runningEquity });
           openPosition = null;
         }
@@ -192,7 +245,7 @@ export class BlueprintsService {
           const filledPrice = price * (1 + slippageFactor);
           const pnl = calculatePnL(openPosition.entryPrice, filledPrice, params.quantity, 'sell') - commissionPerTrade * 2;
           runningEquity += pnl;
-          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
+          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, entryContext: null, exitReason: null, pnl, isOpen: false });
           equityCurve.push({ timestamp: time, equity: runningEquity });
           openPosition = null;
         }
@@ -200,7 +253,7 @@ export class BlueprintsService {
     }
 
     if (openPosition !== null) {
-      trades.push({ entryTime: openPosition.entryTime, exitTime: null, side: openPosition.side, entryPrice: openPosition.entryPrice, exitPrice: null, entryRsi: openPosition.entryRsi, exitRsi: null, pnl: null, isOpen: true });
+      trades.push({ entryTime: openPosition.entryTime, exitTime: null, side: openPosition.side, entryPrice: openPosition.entryPrice, exitPrice: null, entryRsi: openPosition.entryRsi, exitRsi: null, entryContext: null, exitReason: null, pnl: null, isOpen: true });
     }
 
     const closedTrades = trades.filter((t) => !t.isOpen);
@@ -215,6 +268,175 @@ export class BlueprintsService {
       symbol,
       timeframe,
       barsAnalyzed: bars.length,
+      trades,
+      totalPnL,
+      winRate,
+      totalTrades: trades.length,
+      winCount,
+      lossCount,
+      equityCurve,
+      maxDrawdown,
+      sharpeRatio,
+    };
+  }
+
+  // ── ICT Backtest ───────────────────────────────────────────────────────────
+
+  private async simulateIct(
+    params: IctParametersDto,
+    symbol: string,
+    limit: number,
+    slippagePct = 0,
+    commissionPerTrade = 0,
+  ): Promise<BacktestResultDto> {
+    // Fetch M5 bars only — M15 and H1 views are derived via aggregateBars
+    const m5Bars = await this.broker.getRecentBars(symbol, '5Min', limit);
+
+    const minBars = params.swingLookback * 2 + 3;
+    if (m5Bars.length < minBars) {
+      throw new BadRequestException(
+        `Not enough M5 bars for ICT backtest (got ${m5Bars.length}, need ${minBars})`,
+      );
+    }
+
+    const M5_PER_M15 = 3;
+    const M5_PER_H1  = 12;
+    // Start once we can build at least 4 H1 bars (for swing detection)
+    const startIndex = Math.max(params.swingLookback * 2 + 1, M5_PER_H1 * 4);
+
+    const slippageFactor = slippagePct / 100;
+
+    type OpenIctPosition = {
+      side: 'buy' | 'sell';
+      entryPrice: number;
+      entryTime: string;
+      stopLossPrice: number;
+      takeProfitPrice: number;
+      entryContext: string;
+    };
+
+    let openPosition: OpenIctPosition | null = null;
+    const trades: BacktestTradeDto[] = [];
+    let runningEquity = 0;
+    const equityCurve: { timestamp: string; equity: number }[] = [];
+
+    for (let i = startIndex; i < m5Bars.length; i++) {
+      const m5Slice  = m5Bars.slice(0, i + 1);
+      const m15Slice = aggregateBars(m5Slice, M5_PER_M15);
+      const h1Slice  = aggregateBars(m5Slice, M5_PER_H1);
+
+      const currentBar = m5Bars[i];
+
+      // Check if an open limit order was filled on this bar
+      if (openPosition !== null) {
+        const fillResult = checkLimitOrderFill(currentBar, openPosition);
+        if (fillResult === 'TP') {
+          const exitPrice = openPosition.takeProfitPrice;
+          const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, openPosition.side) - commissionPerTrade * 2;
+          runningEquity += pnl;
+          trades.push({
+            entryTime: openPosition.entryTime,
+            exitTime: currentBar.timestamp.toISOString(),
+            side: openPosition.side,
+            entryPrice: openPosition.entryPrice,
+            exitPrice,
+            entryRsi: null,
+            exitRsi: null,
+            entryContext: openPosition.entryContext,
+            exitReason: 'TP',
+            pnl,
+            isOpen: false,
+          });
+          equityCurve.push({ timestamp: currentBar.timestamp.toISOString(), equity: runningEquity });
+          openPosition = null;
+          continue;
+        }
+        if (fillResult === 'SL') {
+          // Apply slippage on SL fill (adverse fill)
+          const rawExit = openPosition.stopLossPrice;
+          const exitPrice = openPosition.side === 'buy'
+            ? rawExit * (1 - slippageFactor)
+            : rawExit * (1 + slippageFactor);
+          const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, openPosition.side) - commissionPerTrade * 2;
+          runningEquity += pnl;
+          trades.push({
+            entryTime: openPosition.entryTime,
+            exitTime: currentBar.timestamp.toISOString(),
+            side: openPosition.side,
+            entryPrice: openPosition.entryPrice,
+            exitPrice,
+            entryRsi: null,
+            exitRsi: null,
+            entryContext: openPosition.entryContext,
+            exitReason: 'SL',
+            pnl,
+            isOpen: false,
+          });
+          equityCurve.push({ timestamp: currentBar.timestamp.toISOString(), equity: runningEquity });
+          openPosition = null;
+          continue;
+        }
+        // Order still pending — skip new entry this bar
+        continue;
+      }
+
+      // Generate ICT signal on current multi-timeframe slices
+      if (h1Slice.length < params.swingLookback * 2 + 1 || m15Slice.length < params.swingLookback * 2 + 1) continue;
+
+      const signalResult = generateIctSignal({
+        h1Bars: h1Slice,
+        m15Bars: m15Slice,
+        m5Bars: m5Slice,
+        params,
+        currentTime: currentBar.timestamp,
+      });
+
+      if (signalResult.signal !== TradeSignal.HOLD && signalResult.limitPrice !== null) {
+        // Apply entry slippage to limit price
+        const entryPrice = signalResult.side === OrderSide.BUY
+          ? signalResult.limitPrice * (1 + slippageFactor)
+          : signalResult.limitPrice * (1 - slippageFactor);
+
+        openPosition = {
+          side: signalResult.side === OrderSide.BUY ? 'buy' : 'sell',
+          entryPrice,
+          entryTime: currentBar.timestamp.toISOString(),
+          stopLossPrice: signalResult.stopLossPrice!,
+          takeProfitPrice: signalResult.takeProfitPrice!,
+          entryContext: signalResult.reason,
+        };
+      }
+    }
+
+    // Mark any still-pending position as open (unfilled or in-flight)
+    if (openPosition !== null) {
+      trades.push({
+        entryTime: openPosition.entryTime,
+        exitTime: null,
+        side: openPosition.side,
+        entryPrice: openPosition.entryPrice,
+        exitPrice: null,
+        entryRsi: null,
+        exitRsi: null,
+        entryContext: openPosition.entryContext,
+        exitReason: null,
+        pnl: null,
+        isOpen: true,
+      });
+    }
+
+    const closedTrades = trades.filter((t) => !t.isOpen);
+    const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+    const winCount = closedTrades.filter((t) => (t.pnl ?? 0) > 0).length;
+    const lossCount = closedTrades.filter((t) => (t.pnl ?? 0) < 0).length;
+    const winRate = winCount + lossCount > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
+    const maxDrawdown = this.calculateMaxDrawdown(equityCurve.map((e) => e.equity));
+    const sharpeRatio = this.calculateSharpeRatio(closedTrades.map((t) => t.pnl ?? 0));
+
+    return {
+      symbol,
+      timeframe: '5Min',
+      barsAnalyzed: m5Bars.length,
       trades,
       totalPnL,
       winRate,
