@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { ApiKeyCreateDto, IBrokerAdapter } from '@vantrade/types';
+import type { ApiKeyCreateDto, ApiKeyDeleteDto, IBrokerAdapter } from '@vantrade/types';
 import { EncryptionService } from '../encryption/encryption.service';
 import { ApiKeysRepository } from './api-keys.repository';
 
@@ -15,25 +15,30 @@ export class ApiKeysService {
     const encryptedKey = this.encryption.encrypt(dto.alpacaApiKey);
     const encryptedSecret = this.encryption.encrypt(dto.alpacaApiSecret);
 
-    await this.repo.upsert(userId, { encryptedKey, encryptedSecret });
+    await this.repo.upsert(userId, { encryptedKey, encryptedSecret, label: dto.label });
     return { message: 'API key stored securely' };
   }
 
-  async hasKey(userId: string): Promise<boolean> {
-    const key = await this.repo.findByUser(userId);
-    return key !== null;
+  async listKeys(userId: string) {
+    const keys = await this.repo.findByUser(userId);
+    return keys.map((k) => ({ label: k.label, broker: k.broker }));
   }
 
-  async remove(userId: string) {
-    const key = await this.repo.findByUser(userId);
-    if (!key) throw new NotFoundException('No API key found');
-    await this.repo.delete(userId);
+  async hasKey(userId: string): Promise<boolean> {
+    const keys = await this.repo.findByUser(userId);
+    return keys.length > 0;
+  }
+
+  async remove(dto: ApiKeyDeleteDto, userId: string) {
+    const key = await this.repo.findByUserAndLabel(userId, dto.label);
+    if (!key) throw new NotFoundException(`No API key found with label "${dto.label}"`);
+    await this.repo.delete(userId, dto.label);
     return { message: 'API key removed' };
   }
 
-  async verify(userId: string): Promise<{ valid: boolean }> {
-    const key = await this.repo.findByUser(userId);
-    if (!key) throw new NotFoundException('No API key found');
+  async verify(userId: string, label = 'default'): Promise<{ valid: boolean }> {
+    const key = await this.repo.findByUserAndLabel(userId, label);
+    if (!key) throw new NotFoundException(`No API key found with label "${label}"`);
 
     const apiKey = this.encryption.decrypt(key.encryptedKey);
     const apiSecret = this.encryption.decrypt(key.encryptedSecret);

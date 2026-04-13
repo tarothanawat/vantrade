@@ -20,6 +20,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.0",
     "@nestjs/schedule": "^4.0.1",
+    "@nestjs/throttler": "^6.0.0",
     "@prisma/client": "^5.22.0",
     "@vantrade/types": "workspace:*",
     "@alpacahq/alpaca-trade-api": "^3.1.3",

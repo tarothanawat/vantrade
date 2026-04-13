@@ -55,7 +55,20 @@
       "Bash(\"C:/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot/bin/javap\" -verbose \"de/maibornwolff/codecharta/analysers/parsers/gitlog/parser/LogLineParser.class\")",
       "Bash(\"C:/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot/bin/javap\" -verbose \"de/maibornwolff/codecharta/analysers/parsers/gitlog/parser/git/GitLogNumstatRawParserStrategy.class\")",
       "Bash(ccsh merge:*)",
-      "Bash(codeCharta vantrade.cc.json)"
+      "Bash(codeCharta vantrade.cc.json)",
+      "Bash(xargs cat:*)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && head -20 {}')",
+      "Bash(grep -r \"export\" /d/work/SWArch/vantrade/packages/types/src/schemas/*.ts)",
+      "Bash(./node_modules/.bin/prisma generate:*)",
+      "Bash(ls D:/work/SWArch/vantrade/node_modules/.bin/prisma*)",
+      "Bash(ls D:/work/SWArch/vantrade/apps/api/node_modules/.bin/prisma*)",
+      "Bash(D:/work/SWArch/vantrade/apps/api/node_modules/.bin/prisma generate:*)",
+      "Bash(D:/work/SWArch/vantrade/node_modules/.pnpm/node_modules/.bin/prisma generate:*)",
+      "Bash(D:/work/SWArch/vantrade/node_modules/.pnpm/prisma@5.22.0/node_modules/prisma/node_modules/.bin/prisma generate:*)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && grep -A5 \"model ApiKey\"  \"{}\"')",
+      "Bash(./node_modules/.bin/prisma migrate:*)",
+      "Bash(./node_modules/.bin/prisma db:*)",
+      "Bash(grep -n \"OrderSide\" D:/work/SWArch/vantrade/packages/types/src/interfaces/*.ts D:/work/SWArch/vantrade/packages/types/src/index.ts)"
     ]
   }
 }

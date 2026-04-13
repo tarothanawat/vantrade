@@ -1,20 +1,21 @@
-﻿import {
+import {
+  Body,
   Controller,
-  Post,
   Delete,
   Get,
-  Body,
+  Post,
+  Query,
   Request,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { ApiKeysService } from './api-keys.service';
+import { ApiKeyCreateSchema, ApiKeyDeleteSchema, Role } from '@vantrade/types';
+import type { ApiKeyCreateDto, ApiKeyDeleteDto, AuthRequest } from '@vantrade/types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { ApiKeyCreateSchema, Role } from '@vantrade/types';
-import type { ApiKeyCreateDto, AuthRequest } from '@vantrade/types';
+import { ApiKeysService } from './api-keys.service';
 
 @Controller('api-keys')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,6 +28,11 @@ export class ApiKeysController {
     return this.apiKeysService.hasKey(req.user.sub);
   }
 
+  @Get()
+  listKeys(@Request() req: AuthRequest) {
+    return this.apiKeysService.listKeys(req.user.sub);
+  }
+
   @Post()
   @UsePipes(new ZodValidationPipe(ApiKeyCreateSchema))
   upsert(@Body() dto: ApiKeyCreateDto, @Request() req: AuthRequest) {
@@ -34,12 +40,13 @@ export class ApiKeysController {
   }
 
   @Delete()
-  remove(@Request() req: AuthRequest) {
-    return this.apiKeysService.remove(req.user.sub);
+  @UsePipes(new ZodValidationPipe(ApiKeyDeleteSchema))
+  remove(@Body() dto: ApiKeyDeleteDto, @Request() req: AuthRequest) {
+    return this.apiKeysService.remove(dto, req.user.sub);
   }
 
   @Post('verify')
-  verify(@Request() req: AuthRequest) {
-    return this.apiKeysService.verify(req.user.sub);
+  verify(@Request() req: AuthRequest, @Query('label') label?: string) {
+    return this.apiKeysService.verify(req.user.sub, label ?? 'default');
   }
 }
