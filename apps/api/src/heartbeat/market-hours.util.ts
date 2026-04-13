@@ -46,6 +46,39 @@ export function isMarketOpenForSymbol(symbol: string, now: Date = new Date()): b
   return isUsMarketOpen(now);
 }
 
+// =============================================================================
+// ICT Session Utilities
+// =============================================================================
+
+export type IctSession = 'LONDON' | 'NEW_YORK' | 'OVERLAP' | 'ALL';
+
+/**
+ * UTC-anchored session windows for institutional activity.
+ * These align with the provider strategy description:
+ *   London:  07:00–10:00 UTC  ≈ 14:00–17:00 BKK (UTC+7)
+ *   NY:      13:00–16:00 UTC  ≈ 20:00–23:00 BKK
+ *   Overlap: 13:00–16:00 UTC  (London close / NY open — highest quality)
+ *
+ * XAUUSD and forex pairs trade 24/7, so these windows are the ONLY
+ * market-hours guard for ICT strategies (isMarketOpenForSymbol is not used).
+ */
+const ICT_SESSION_UTC: Record<Exclude<IctSession, 'ALL'>, { start: number; end: number }> = {
+  LONDON:   { start: 7,  end: 10 },
+  NEW_YORK: { start: 13, end: 16 },
+  OVERLAP:  { start: 13, end: 16 },
+};
+
+/**
+ * Returns true if `now` falls within the requested ICT trading session.
+ * Uses UTC hours so behaviour is deterministic regardless of server timezone.
+ */
+export function isInIctSession(session: IctSession, now: Date = new Date()): boolean {
+  if (session === 'ALL') return true;
+  const utcHour = now.getUTCHours();
+  const window = ICT_SESSION_UTC[session];
+  return utcHour >= window.start && utcHour < window.end;
+}
+
 export function shouldRunForTimeframe(
   timeframe: MarketDataTimeframe,
   now: Date = new Date(),

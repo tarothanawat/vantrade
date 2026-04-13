@@ -10,6 +10,7 @@ import { Observable, tap } from 'rxjs';
 interface HttpRequest {
   method: string;
   path: string;
+  ip: string;
 }
 
 interface HttpResponse {
@@ -22,18 +23,24 @@ export class LoggingInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<HttpRequest>();
-    const { method, path } = req;
+    const { method, path, ip } = req;
     const start = Date.now();
 
     return next.handle().pipe(
       tap({
         next: () => {
           const res = context.switchToHttp().getResponse<HttpResponse>();
-          this.logger.log(`${method} ${path} ${res.statusCode} +${Date.now() - start}ms`);
+          const durationMs = Date.now() - start;
+          this.logger.log(
+            JSON.stringify({ method, path, statusCode: res.statusCode, durationMs, ip }),
+          );
         },
         error: (err: { status?: number }) => {
-          const status = err?.status ?? 500;
-          this.logger.warn(`${method} ${path} ${status} +${Date.now() - start}ms`);
+          const statusCode = err?.status ?? 500;
+          const durationMs = Date.now() - start;
+          this.logger.warn(
+            JSON.stringify({ method, path, statusCode, durationMs, ip }),
+          );
         },
       }),
     );

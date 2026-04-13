@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { TradeSide } from '@prisma/client';
 import { OrderSide } from '@vantrade/types';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface CreateTradeLogData {
   subscriptionId: string;
   symbol: string;
-  side: string;
+  side: TradeSide;
   quantity: number;
   price: number;
   pnl: number | null;

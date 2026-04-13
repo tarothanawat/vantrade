@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AuthModule } from './auth/auth.module';
 import { BlueprintsModule } from './blueprints/blueprints.module';
@@ -15,6 +16,10 @@ import { TradingModule } from './trading/trading.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      { name: 'short', ttl: 1000, limit: 10 },   // 10 req/s burst protection
+      { name: 'medium', ttl: 60_000, limit: 200 }, // 200 req/min sustained
+    ]),
     ScheduleModule.forRoot(),
     PrismaModule,
     EncryptionModule,
@@ -29,6 +34,7 @@ import { TradingModule } from './trading/trading.module';
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

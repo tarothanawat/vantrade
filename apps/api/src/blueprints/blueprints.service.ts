@@ -114,6 +114,8 @@ export class BlueprintsService {
       query.symbol ?? params.symbol,
       query.timeframe ?? params.executionTimeframe,
       query.limit,
+      query.slippagePct,
+      query.commissionPerTrade,
     );
   }
 
@@ -124,6 +126,8 @@ export class BlueprintsService {
       dto.testSymbol ?? params.symbol,
       dto.testTimeframe ?? params.executionTimeframe,
       dto.limit,
+      dto.slippagePct,
+      dto.commissionPerTrade,
     );
   }
 
@@ -132,6 +136,8 @@ export class BlueprintsService {
     symbol: string,
     timeframe: MarketDataTimeframe,
     limit: number,
+    slippagePct = 0,
+    commissionPerTrade = 0,
   ): Promise<BacktestResultDto> {
     if (limit < params.rsiPeriod + 1) {
       throw new BadRequestException(
@@ -150,6 +156,8 @@ export class BlueprintsService {
     const closePrices = bars.map((b) => b.close);
     const timestamps = bars.map((b) => b.timestamp.toISOString());
 
+    const slippageFactor = slippagePct / 100;
+
     type OpenPosition = { side: 'buy' | 'sell'; entryPrice: number; entryTime: string; entryRsi: number };
     let openPosition: OpenPosition | null = null;
     const trades: BacktestTradeDto[] = [];
@@ -164,21 +172,27 @@ export class BlueprintsService {
 
       if (params.executionMode === 'BUY_LOW_SELL_HIGH') {
         if (signal === 'buy' && openPosition === null) {
-          openPosition = { side: 'buy', entryPrice: price, entryTime: time, entryRsi: rsi };
+          // Slippage on entry: buyer pays slightly more
+          const filledPrice = price * (1 + slippageFactor);
+          openPosition = { side: 'buy', entryPrice: filledPrice, entryTime: time, entryRsi: rsi };
         } else if (signal === 'sell' && openPosition?.side === 'buy') {
-          const pnl = calculatePnL(openPosition.entryPrice, price, params.quantity, 'buy');
+          // Slippage on exit: seller receives slightly less
+          const filledPrice = price * (1 - slippageFactor);
+          const pnl = calculatePnL(openPosition.entryPrice, filledPrice, params.quantity, 'buy') - commissionPerTrade * 2;
           runningEquity += pnl;
-          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice: price, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
+          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
           equityCurve.push({ timestamp: time, equity: runningEquity });
           openPosition = null;
         }
       } else {
         if (signal === 'sell' && openPosition === null) {
-          openPosition = { side: 'sell', entryPrice: price, entryTime: time, entryRsi: rsi };
+          const filledPrice = price * (1 - slippageFactor);
+          openPosition = { side: 'sell', entryPrice: filledPrice, entryTime: time, entryRsi: rsi };
         } else if (signal === 'buy' && openPosition?.side === 'sell') {
-          const pnl = calculatePnL(openPosition.entryPrice, price, params.quantity, 'sell');
+          const filledPrice = price * (1 + slippageFactor);
+          const pnl = calculatePnL(openPosition.entryPrice, filledPrice, params.quantity, 'sell') - commissionPerTrade * 2;
           runningEquity += pnl;
-          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice: price, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
+          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, pnl, isOpen: false });
           equityCurve.push({ timestamp: time, equity: runningEquity });
           openPosition = null;
         }
@@ -194,6 +208,8 @@ export class BlueprintsService {
     const winCount = closedTrades.filter((t) => (t.pnl ?? 0) > 0).length;
     const lossCount = closedTrades.filter((t) => (t.pnl ?? 0) < 0).length;
     const winRate = winCount + lossCount > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
+    const maxDrawdown = this.calculateMaxDrawdown(equityCurve.map((e) => e.equity));
+    const sharpeRatio = this.calculateSharpeRatio(closedTrades.map((t) => t.pnl ?? 0));
 
     return {
       symbol,
@@ -206,6 +222,35 @@ export class BlueprintsService {
       winCount,
       lossCount,
       equityCurve,
+      maxDrawdown,
+      sharpeRatio,
     };
+  }
+
+  /** Peak-to-trough maximum drawdown (in equity units). */
+  private calculateMaxDrawdown(equityPoints: number[]): number {
+    if (equityPoints.length === 0) return 0;
+    let peak = equityPoints[0];
+    let maxDD = 0;
+    for (const eq of equityPoints) {
+      if (eq > peak) peak = eq;
+      const dd = peak - eq;
+      if (dd > maxDD) maxDD = dd;
+    }
+    return maxDD;
+  }
+
+  /**
+   * Annualised Sharpe ratio (risk-free rate = 0).
+   * Uses per-trade returns; assumes ~252 trading days / year and 1 trade/day as a proxy.
+   * Returns 0 when there are fewer than 2 closed trades.
+   */
+  private calculateSharpeRatio(pnlSeries: number[]): number {
+    if (pnlSeries.length < 2) return 0;
+    const mean = pnlSeries.reduce((s, v) => s + v, 0) / pnlSeries.length;
+    const variance = pnlSeries.reduce((s, v) => s + (v - mean) ** 2, 0) / pnlSeries.length;
+    const stddev = Math.sqrt(variance);
+    if (stddev === 0) return 0;
+    return (mean / stddev) * Math.sqrt(252);
   }
 }

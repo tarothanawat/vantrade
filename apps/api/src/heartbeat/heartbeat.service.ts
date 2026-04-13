@@ -4,6 +4,7 @@ import type {
   BlueprintParameters,
   BlueprintParametersDto,
   IBrokerAdapter,
+  MarketBarDto,
   MarketDataTimeframe,
   OrderParams,
 } from '@vantrade/types';
@@ -19,11 +20,26 @@ import {
 
 type ActiveSubscription = Awaited<ReturnType<SubscriptionsRepository['findAllActive']>>[number];
 
+// TTL in milliseconds per timeframe — bars are only re-fetched after the window expires
+const CACHE_TTL_MS: Record<MarketDataTimeframe, number> = {
+  '1Min':  60_000,
+  '5Min':  5 * 60_000,
+  '15Min': 15 * 60_000,
+  '1Hour': 60 * 60_000,
+  '1Day':  24 * 60 * 60_000,
+};
+
+interface CacheEntry {
+  bars: MarketBarDto[];
+  fetchedAt: number;
+}
+
 @Injectable()
 export class HeartbeatService {
   private readonly logger = new Logger(HeartbeatService.name);
   private lastRunAt: Date | null = null;
   private lastActiveCount = 0;
+  private readonly barsCache = new Map<string, CacheEntry>();
 
   constructor(
     @Inject('IBrokerAdapter') private readonly broker: IBrokerAdapter,
@@ -43,6 +59,7 @@ export class HeartbeatService {
   @Cron('*/60 * * * * *')
   async tick(): Promise<void> {
     this.logger.debug('Heartbeat tick started');
+    this.barsCache.clear(); // discard stale entries from previous tick
     const active = await this.subscriptionsRepo.findAllActive();
     this.lastActiveCount = active.length;
     this.lastRunAt = new Date();
@@ -50,10 +67,28 @@ export class HeartbeatService {
     await Promise.allSettled(active.map((sub) => this.processSub(sub)));
   }
 
+  private async getCachedBars(
+    symbol: string,
+    timeframe: MarketDataTimeframe,
+    limit: number,
+  ): Promise<MarketBarDto[]> {
+    const key = `${symbol}:${timeframe}:${limit}`;
+    const cached = this.barsCache.get(key);
+    const ttl = CACHE_TTL_MS[timeframe] ?? 60_000;
+
+    if (cached && Date.now() - cached.fetchedAt < ttl) {
+      return cached.bars;
+    }
+
+    const bars = await this.broker.getRecentBars(symbol, timeframe, limit);
+    this.barsCache.set(key, { bars, fetchedAt: Date.now() });
+    return bars;
+  }
+
   private async getLastTradeSide(subscriptionId: string): Promise<OrderSide | null> {
     const latest = await this.tradeLogsRepo.findLatestTradeSideBySubscription(subscriptionId);
     if (!latest) return null;
-    if (latest.side === OrderSide.BUY || latest.side === OrderSide.SELL) return latest.side;
+    if (latest.side === OrderSide.BUY || latest.side === OrderSide.SELL) return latest.side as OrderSide;
     return null;
   }
 
@@ -89,7 +124,8 @@ export class HeartbeatService {
         return;
       }
 
-      if (!user.apiKeys || user.apiKeys.length === 0) {
+      const defaultKey = user.apiKeys?.find((k) => k.label === 'default') ?? user.apiKeys?.[0];
+      if (!defaultKey) {
         this.logger.warn(`User ${user.id} has no API key — skipping subscription ${sub.id}`);
         return;
       }
@@ -102,11 +138,7 @@ export class HeartbeatService {
       }
 
       const requiredBars = params.rsiPeriod + 1;
-      const recentBars = await this.broker.getRecentBars(
-        params.symbol,
-        executionTimeframe,
-        requiredBars,
-      );
+      const recentBars = await this.getCachedBars(params.symbol, executionTimeframe, requiredBars);
 
       if (recentBars.length < requiredBars) {
         this.logger.debug(
@@ -165,8 +197,8 @@ export class HeartbeatService {
         accountId: user.id,
       };
 
-      const apiKey = this.encryptionService.decrypt(user.apiKeys[0].encryptedKey);
-      const apiSecret = this.encryptionService.decrypt(user.apiKeys[0].encryptedSecret);
+      const apiKey = this.encryptionService.decrypt(defaultKey.encryptedKey);
+      const apiSecret = this.encryptionService.decrypt(defaultKey.encryptedSecret);
       const result = await this.broker.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
 
       await this.tradeLogsRepo.create({

@@ -6,6 +6,8 @@ export const BacktestQuerySchema = z.object({
   symbol: z.string().min(1).max(10).transform((v) => v.toUpperCase()).optional(),
   timeframe: MarketDataTimeframeSchema.optional(),
   limit: z.coerce.number().int().min(10).max(5000).default(200),
+  slippagePct: z.coerce.number().min(0).max(5).default(0),       // % applied to fill price
+  commissionPerTrade: z.coerce.number().min(0).default(0),        // flat $ per trade
 });
 
 export const BacktestTradeSchema = z.object({
@@ -14,8 +16,10 @@ export const BacktestTradeSchema = z.object({
   side: z.enum(['buy', 'sell']),
   entryPrice: z.number(),
   exitPrice: z.number().nullable(),
-  entryRsi: z.number(),
-  exitRsi: z.number().nullable(),
+  entryRsi: z.number().nullable(),     // null for ICT trades
+  exitRsi: z.number().nullable(),      // null for ICT trades
+  entryContext: z.string().nullable(),              // 'OB' | 'FVG' | null — ICT only
+  exitReason: z.enum(['TP', 'SL']).nullable(),      // ICT only
   pnl: z.number().nullable(),
   isOpen: z.boolean(),
 });
@@ -31,6 +35,8 @@ export const BacktestResultSchema = z.object({
   winCount: z.number().int(),
   lossCount: z.number().int(),
   equityCurve: z.array(z.object({ timestamp: z.string(), equity: z.number() })),
+  maxDrawdown: z.number(),   // peak-to-trough drop in equity units
+  sharpeRatio: z.number(),   // annualised Sharpe (risk-free rate = 0)
 });
 
 // Parameter-based backtest (no blueprint ID needed — used during blueprint creation)
@@ -39,6 +45,8 @@ export const BlueprintBacktestPreviewSchema = z.object({
   testSymbol: z.string().min(1).max(10).transform((v) => v.toUpperCase()).optional(),
   testTimeframe: MarketDataTimeframeSchema.optional(),
   limit: z.coerce.number().int().min(10).max(5000).default(200),
+  slippagePct: z.coerce.number().min(0).max(5).default(0),
+  commissionPerTrade: z.coerce.number().min(0).default(0),
 });
 
 export type BacktestQueryDto = z.infer<typeof BacktestQuerySchema>;
