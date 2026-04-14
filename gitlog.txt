@@ -1,3 +1,24 @@
+commit 5f304ffba2fe668af9b3db7ec613979a4b8f48e5
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 00:19:02 2026 +0700
+
+    Refactor code structure for improved readability and maintainability
+
+:100644 100644 0d5c079 f801d83 M	gitlog.cc.json
+:000000 100644 0000000 93255fa A	gitlog.cc.json.gz
+:100644 100644 390af2d b817139 M	gitlog.txt
+:100644 100644 ef3ea6a 549f33d M	rawtext.cc.json
+:000000 100644 0000000 6354ccf A	rawtext.cc.json.gz
+:100644 100644 ed08568 4f76272 M	repo-files.txt
+:100644 100644 7b11377 93c7c45 M	vantrade.cc.json
+1	1	gitlog.cc.json
+-	-	gitlog.cc.json.gz
+79	0	gitlog.txt
+1	1	rawtext.cc.json
+-	-	rawtext.cc.json.gz
+30	2	repo-files.txt
+1	1	vantrade.cc.json
+
 commit b8a67a4e47b52cb7c72309bad024f855e93d1122
 Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
 Date:   Wed Apr 15 00:14:52 2026 +0700

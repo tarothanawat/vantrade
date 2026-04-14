@@ -171,4 +171,19 @@ export class AlpacaMarketDataClient {
     const bars = await this.getRecentBars(symbol, '1Min', limit);
     return bars.map((bar) => bar.close);
   }
+
+  /**
+   * Returns the latest price for a crypto symbol (trying all candidate formats),
+   * or null if the symbol is not crypto-like. Throws if crypto but no price found.
+   * Used by AlpacaAdapter.getLatestPrice to keep crypto routing out of the adapter.
+   */
+  async tryGetLatestCryptoPrice(symbol: string): Promise<number | null> {
+    if (!isCryptoLikeSymbol(symbol)) return null;
+    const candidates = getCryptoSymbolCandidates(symbol);
+    for (const candidate of candidates) {
+      const price = await this.getLatestCryptoPrice(candidate);
+      if (price && price > 0) return price;
+    }
+    throw new Error(`No price data returned for ${symbol}. Tried: ${candidates.join(', ')}`);
+  }
 }

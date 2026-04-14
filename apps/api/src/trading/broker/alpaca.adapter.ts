@@ -9,11 +9,7 @@ import type {
     Position,
 } from '@vantrade/types';
 import { OrderSide, OrderStatus } from '@vantrade/types';
-import {
-    getCryptoSymbolCandidates,
-    getStockSymbolCandidates,
-    isCryptoLikeSymbol,
-} from './symbol-normalizer';
+import { getStockSymbolCandidates } from './symbol-normalizer';
 import { AlpacaMarketDataClient } from './alpaca-market-data.client';
 
 @Injectable()
@@ -42,14 +38,8 @@ export class AlpacaAdapter implements IBrokerAdapter {
   }
 
   async getLatestPrice(symbol: string): Promise<number> {
-    if (isCryptoLikeSymbol(symbol)) {
-      const candidates = getCryptoSymbolCandidates(symbol);
-      for (const candidate of candidates) {
-        const price = await this.marketData.getLatestCryptoPrice(candidate);
-        if (price && price > 0) return price;
-      }
-      throw new Error(`No price data returned for ${symbol}. Tried: ${candidates.join(', ')}`);
-    }
+    const cryptoPrice = await this.marketData.tryGetLatestCryptoPrice(symbol);
+    if (cryptoPrice !== null) return cryptoPrice;
 
     const client = this.buildClient(
       process.env.ALPACA_API_KEY ?? '',
