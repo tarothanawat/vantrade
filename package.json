@@ -7,9 +7,15 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "postinstall": "node -e \"try{require('fs').copyFileSync('node_modules/codecharta-analysis/binScripts/local/ccsh.cmd','node_modules/.bin/ccsh.CMD')}catch(e){}\"",
+    "codecharta:analyze": "echo '' | ccsh rawtextparser -nc -e \"node_modules,.next,dist,.turbo,coverage\" -o rawtext.cc.json apps packages && echo '' | ccsh merge -nc rawtext.cc.json gitlog.cc.json -o vantrade.cc.json",
+    "codecharta:open": "codecharta-visualization",
+    "codecharta": "pnpm codecharta:analyze && pnpm codecharta:open"
   },
   "devDependencies": {
+    "codecharta-analysis": "1.142.0",
+    "codecharta-visualization": "1.142.0",
     "prettier": "^3.2.5",
     "turbo": "^2.0.0",
     "typescript": "^5.4.5"
@@ -17,5 +23,8 @@
   "packageManager": "pnpm@9.1.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "pnpm": {
+    "neverBuiltDependencies": ["codecharta-analysis"]
   }
 }
