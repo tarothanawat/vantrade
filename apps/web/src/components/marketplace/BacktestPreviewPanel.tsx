@@ -1,7 +1,10 @@
 'use client';
 
+import { EquityCurve } from '@/components/backtest/EquityCurve';
+import { TradeRow } from '@/components/backtest/TradeRow';
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
-import type { BacktestResultDto, BacktestTradeDto, BlueprintParametersDto, MarketDataTimeframe } from '@vantrade/types';
+import { formatCurrency, formatWinRate } from '@/lib/backtest-formatters';
+import type { BacktestResultDto, BlueprintParametersDto, MarketDataTimeframe } from '@vantrade/types';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -10,86 +13,6 @@ interface Props {
 
 const TIMEFRAMES: MarketDataTimeframe[] = ['1Min', '5Min', '15Min', '1Hour', '1Day'];
 const LIMITS = [100, 250, 500, 1000, 2000, 5000] as const;
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-}
-
-function formatWinRate(winCount: number, lossCount: number): string {
-  if (winCount + lossCount === 0) return 'N/A';
-  return `${((winCount / (winCount + lossCount)) * 100).toFixed(1)}%`;
-}
-
-function EquityCurve({ data }: { data: { timestamp: string; equity: number }[] }) {
-  if (data.length < 2) return null;
-  const W = 400;
-  const H = 80;
-  const pad = 4;
-  const equities = data.map((d) => d.equity);
-  const min = Math.min(...equities);
-  const max = Math.max(...equities);
-  const range = max - min || 1;
-  const points = data
-    .map((d, i) => {
-      const x = pad + (i / (data.length - 1)) * (W - pad * 2);
-      const y = pad + (1 - (d.equity - min) / range) * (H - pad * 2);
-      return `${x},${y}`;
-    })
-    .join(' ');
-  const lineColor = equities[equities.length - 1] >= 0 ? '#34d399' : '#f87171';
-  return (
-    <div className="mt-4 rounded-lg border border-gray-800 bg-gray-950 p-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Equity Curve</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
-        <polyline points={points} fill="none" stroke={lineColor} strokeWidth="1.5" />
-        <line x1={pad} y1={H / 2} x2={W - pad} y2={H / 2} stroke="#374151" strokeWidth="0.5" strokeDasharray="4 4" />
-      </svg>
-    </div>
-  );
-}
-
-function formatBarTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date(iso));
-}
-
-function TradeRow({ trade, index }: { trade: BacktestTradeDto; index: number }) {
-  return (
-    <tr className="border-t border-gray-800 text-xs">
-      <td className="py-1.5 pr-3 text-gray-400">{index + 1}</td>
-      <td className="py-1.5 pr-3">
-        <span className={`font-semibold uppercase ${trade.side === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>
-          {trade.side}
-        </span>
-      </td>
-      <td className="py-2 pr-3">
-        <div className="text-gray-300">{trade.entryPrice.toFixed(2)}</div>
-        <div className="text-gray-500">{formatBarTime(trade.entryTime)}</div>
-        {trade.entryRsi != null && <div className="text-indigo-400">RSI {trade.entryRsi.toFixed(1)}</div>}
-      </td>
-      <td className="py-2 pr-3">
-        {trade.exitPrice != null && trade.exitTime != null ? (
-          <>
-            <div className="text-gray-300">{trade.exitPrice.toFixed(2)}</div>
-            <div className="text-gray-500">{formatBarTime(trade.exitTime)}</div>
-            <div className="text-indigo-400">RSI {trade.exitRsi?.toFixed(1) ?? '—'}</div>
-          </>
-        ) : (
-          <span className="rounded bg-indigo-900/60 px-1.5 py-0.5 text-indigo-300">Open</span>
-        )}
-      </td>
-      <td className="py-2">
-        {trade.isOpen ? (
-          <span className="text-gray-500">—</span>
-        ) : trade.pnl != null ? (
-          <span className={trade.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}>{formatCurrency(trade.pnl)}</span>
-        ) : '—'}
-      </td>
-    </tr>
-  );
-}
 
 export default function BacktestPreviewPanel({ params }: Props) {
   const defaultTimeframe: MarketDataTimeframe =
