@@ -1,3 +1,82 @@
+commit b8a67a4e47b52cb7c72309bad024f855e93d1122
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 00:14:52 2026 +0700
+
+    feat: implement AlpacaMarketDataClient for market data retrieval
+    
+    - Added AlpacaMarketDataClient to handle fetching market data for stocks and cryptocurrencies.
+    - Refactored AlpacaAdapter to delegate market data operations to AlpacaMarketDataClient.
+    - Introduced methods for fetching recent bars and historical prices in AlpacaMarketDataClient.
+    - Updated AlpacaAdapter to use the new market data client for price lookups and bar data retrieval.
+    - Added EquityCurve and TradeRow components for visualizing backtest results in the web application.
+
+:100644 100644 800a1d7 fb6722e M	apps/api/src/blueprints/blueprints.controller.ts
+:100644 100644 b095b51 81594d2 M	apps/api/src/blueprints/blueprints.module.ts
+:100644 100644 943e502 5af5e02 M	apps/api/src/blueprints/blueprints.service.ts
+:000000 100644 0000000 d151049 A	apps/api/src/trading/broker/alpaca-market-data.client.ts
+:100644 100644 19f22dc b969809 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 bede1af 8b66387 M	apps/api/src/trading/trading.module.ts
+:000000 100644 0000000 81bb5fd A	apps/web/src/components/backtest/EquityCurve.tsx
+:000000 100644 0000000 8eb1a55 A	apps/web/src/components/backtest/TradeRow.tsx
+7	3	apps/api/src/blueprints/blueprints.controller.ts
+2	1	apps/api/src/blueprints/blueprints.module.ts
+1	332	apps/api/src/blueprints/blueprints.service.ts
+174	0	apps/api/src/trading/broker/alpaca-market-data.client.ts
+62	338	apps/api/src/trading/broker/alpaca.adapter.ts
+2	0	apps/api/src/trading/trading.module.ts
+32	0	apps/web/src/components/backtest/EquityCurve.tsx
+40	0	apps/web/src/components/backtest/TradeRow.tsx
+
+commit a36bc7b658c72eb30465d453cc7af8cf4b5433c0
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 00:14:33 2026 +0700
+
+    feat: implement backtest service and related components for trading strategy simulation
+
+:000000 100644 0000000 d6b1d4d A	apps/api/src/blueprints/backtest.service.ts
+:100644 100644 471be6b bfeb1bf M	apps/web/src/components/marketplace/BacktestPanel.tsx
+:100644 100644 469c37d 7e87318 M	apps/web/src/components/marketplace/BacktestPreviewPanel.tsx
+:000000 100644 0000000 12dd788 A	apps/web/src/lib/backtest-formatters.ts
+335	0	apps/api/src/blueprints/backtest.service.ts
+7	94	apps/web/src/components/marketplace/BacktestPanel.tsx
+4	81	apps/web/src/components/marketplace/BacktestPreviewPanel.tsx
+15	0	apps/web/src/lib/backtest-formatters.ts
+
+commit f9bbe2bfd35479f2da3c73b0087f9d21b945b880
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Tue Apr 14 23:44:58 2026 +0700
+
+    feat: enhance codecharta analysis workflow by adding git log parsing
+    
+    - Introduced a new script `codecharta:gitlog` to generate a git log and repository files for analysis.
+    - Updated `codecharta:analyze` to first run `codecharta:gitlog` and include additional files in the analysis.
+
+:100644 100644 dbda180 9eb14f0 M	apps/web/src/app/(dashboard)/admin/page.tsx
+:000000 100644 0000000 b6f0012 A	apps/web/src/components/admin/BlueprintReviewTable.tsx
+:000000 100644 0000000 b022398 A	apps/web/src/components/admin/UserManagementTable.tsx
+:100644 100644 9b684ef 79e5fdb M	apps/web/src/components/market/InteractiveMarketChart.tsx
+:000000 100644 0000000 011ef0d A	apps/web/src/hooks/use-admin.ts
+:000000 100644 0000000 390af2d A	gitlog.txt
+:100644 100644 1a7e4ef 8863dc2 M	package.json
+13	158	apps/web/src/app/(dashboard)/admin/page.tsx
+64	0	apps/web/src/components/admin/BlueprintReviewTable.tsx
+64	0	apps/web/src/components/admin/UserManagementTable.tsx
+284	342	apps/web/src/components/market/InteractiveMarketChart.tsx
+57	0	apps/web/src/hooks/use-admin.ts
+974	0	gitlog.txt
+2	1	package.json
+
+commit 212192125e747feb462c3503990619b494ec9513
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Tue Apr 14 23:44:30 2026 +0700
+
+    refactor: streamline AlpacaAdapter methods and enhance order handling
+
+:100644 100644 ef35e55 943e502 M	apps/api/src/blueprints/blueprints.service.ts
+:100644 100644 ef1b9d2 19f22dc M	apps/api/src/trading/broker/alpaca.adapter.ts
+114	122	apps/api/src/blueprints/blueprints.service.ts
+27	44	apps/api/src/trading/broker/alpaca.adapter.ts
+
 commit 0f4a60c65db6429a98185125c5023c20e73aaac1
 Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
 Date:   Tue Apr 14 19:59:06 2026 +0700
