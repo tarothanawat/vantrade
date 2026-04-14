@@ -1,10 +1,11 @@
 import {
     ConflictException,
     Injectable,
+    NotFoundException,
     UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { JwtPayload, LoginDto, RegisterDto } from '@vantrade/types';
+import type { AssignRoleDto, JwtPayload, LoginDto, RegisterDto } from '@vantrade/types';
 import { Role } from '@vantrade/types';
 import * as bcrypt from 'bcryptjs';
 import { AuthRepository } from './auth.repository';
@@ -38,6 +39,16 @@ export class AuthService {
     if (!isValid) throw new UnauthorizedException('Invalid credentials');
 
     return this.buildTokenResponse(user);
+  }
+
+  listUsers() {
+    return this.repo.findAll();
+  }
+
+  async assignRole(id: string, dto: AssignRoleDto) {
+    const user = await this.repo.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    return this.repo.updateRole(id, dto.role);
   }
 
   private buildTokenResponse(user: { id: string; email: string; role: string }) {

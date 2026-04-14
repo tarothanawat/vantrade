@@ -4,15 +4,19 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Param,
+    Patch,
     Post,
     Request,
     Res,
     UseGuards,
     UsePipes,
 } from '@nestjs/common';
-import type { AuthRequest, LoginDto, RegisterDto } from '@vantrade/types';
-import { LoginSchema, RegisterSchema } from '@vantrade/types';
+import type { AssignRoleDto, AuthRequest, LoginDto, RegisterDto } from '@vantrade/types';
+import { AssignRoleSchema, LoginSchema, RegisterSchema, Role } from '@vantrade/types';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { Roles } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
@@ -80,5 +84,24 @@ export class AuthController {
         role: req.user.role,
       },
     };
+  }
+
+  // ADMIN — list all users
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  listUsers() {
+    return this.authService.listUsers();
+  }
+
+  // ADMIN — assign a role to a user
+  @Patch('users/:id/role')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  assignRole(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(AssignRoleSchema)) dto: AssignRoleDto,
+  ) {
+    return this.authService.assignRole(id, dto);
   }
 }

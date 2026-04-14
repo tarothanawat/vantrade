@@ -68,7 +68,19 @@
       "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && grep -A5 \"model ApiKey\"  \"{}\"')",
       "Bash(./node_modules/.bin/prisma migrate:*)",
       "Bash(./node_modules/.bin/prisma db:*)",
-      "Bash(grep -n \"OrderSide\" D:/work/SWArch/vantrade/packages/types/src/interfaces/*.ts D:/work/SWArch/vantrade/packages/types/src/index.ts)"
+      "Bash(grep -n \"OrderSide\" D:/work/SWArch/vantrade/packages/types/src/interfaces/*.ts D:/work/SWArch/vantrade/packages/types/src/index.ts)",
+      "Bash(wc:*)",
+      "Bash(where ccsh:*)",
+      "Bash(npm view:*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node_modules/.bin/ccsh --version)",
+      "Bash(./node_modules/.bin/ccsh.cmd --version)",
+      "Bash(node_modules/.bin/ccsh.CMD rawtextparser:*)",
+      "Bash(cmd.exe /c \"node_modules\\\\\\\\codecharta-analysis\\\\\\\\public\\\\\\\\bin\\\\\\\\ccsh.bat rawtextparser -nc -e node_modules,.next,dist,.turbo,coverage -o rawtext.cc.json apps packages\")",
+      "Bash(cmd.exe /c \"node_modules\\\\\\\\codecharta-analysis\\\\\\\\public\\\\\\\\bin\\\\\\\\ccsh.bat rawtextparser -nc -e node_modules,.next,dist,.turbo,coverage -o rawtext.cc.json apps packages 2>&1\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('rawtext.cc.json'\\)\\); [print\\(f\\) for n in d['data']['nodes'] for f in [str\\(n\\)] if 'subscriptions' in str\\(f\\)]\")",
+      "Bash(python3 -c \" import json data = json.load\\(open\\('rawtext_new.cc.json'\\)\\) def find\\(nodes, name, path=''\\): for n in nodes: p = path + '/' + n['name'] if n['name'] == name and n.get\\('type'\\) == 'File': print\\(p, json.dumps\\(n['attributes']\\)\\) if 'children' in n: find\\(n['children'], name, p\\) find\\(data['data']['nodes'], 'page.tsx'\\) \")",
+      "Bash(python3 -c ':*)"
     ]
   }
 }
