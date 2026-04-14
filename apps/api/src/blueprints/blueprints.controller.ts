@@ -31,11 +31,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { BacktestService } from './backtest.service';
 import { BlueprintsService } from './blueprints.service';
 
 @Controller('blueprints')
 export class BlueprintsController {
-  constructor(private readonly blueprintsService: BlueprintsService) {}
+  constructor(
+    private readonly blueprintsService: BlueprintsService,
+    private readonly backtestService: BacktestService,
+  ) {}
 
   // PUBLIC — anyone can browse the verified marketplace
   @Get()
@@ -115,7 +119,7 @@ export class BlueprintsController {
     @Param('id') id: string,
     @Query(new ZodValidationPipe(BacktestQuerySchema)) query: BacktestQueryDto,
   ) {
-    return this.blueprintsService.runBacktest(id, query);
+    return this.backtestService.runBacktest(id, query);
   }
 
   // PROVIDER / ADMIN — backtest using raw parameters (no saved blueprint required)
@@ -125,6 +129,6 @@ export class BlueprintsController {
   runBacktestPreview(
     @Body(new ZodValidationPipe(BlueprintBacktestPreviewSchema)) dto: BlueprintBacktestPreviewDto,
   ) {
-    return this.blueprintsService.runBacktestPreview(dto);
+    return this.backtestService.runBacktestPreview(dto);
   }
 }
