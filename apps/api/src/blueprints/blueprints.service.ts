@@ -16,10 +16,22 @@ import type {
     BlueprintVerifyDto,
     IBrokerAdapter,
     IctParametersDto,
+    MarketBarDto,
     MarketDataTimeframe,
     RsiParametersDto,
 } from '@vantrade/types';
 import { BlueprintParametersSchema, OrderSide, TradeSignal } from '@vantrade/types';
+
+type OpenRsiPosition = { side: 'buy' | 'sell'; entryPrice: number; entryTime: string; entryRsi: number };
+type OpenIctPosition = {
+  side: 'buy' | 'sell';
+  entryPrice: number;
+  entryTime: string;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  entryContext: string;
+};
+type EquityPoint = { timestamp: string; equity: number };
 import {
     aggregateBars,
     calculatePnL,
@@ -211,8 +223,7 @@ export class BlueprintsService {
 
     const slippageFactor = slippagePct / 100;
 
-    type OpenPosition = { side: 'buy' | 'sell'; entryPrice: number; entryTime: string; entryRsi: number };
-    let openPosition: OpenPosition | null = null;
+    let openPosition: OpenRsiPosition | null = null;
     const trades: BacktestTradeDto[] = [];
     let runningEquity = 0;
     const equityCurve: { timestamp: string; equity: number }[] = [];
@@ -220,35 +231,15 @@ export class BlueprintsService {
     for (let i = params.rsiPeriod; i < closePrices.length; i++) {
       const rsi = calculateRSI(closePrices.slice(0, i + 1), params.rsiPeriod);
       const signal = generateSignal(rsi, params.rsiBuyThreshold, params.rsiSellThreshold);
-      const price = closePrices[i];
-      const time = timestamps[i];
-
-      if (params.executionMode === 'BUY_LOW_SELL_HIGH') {
-        if (signal === 'buy' && openPosition === null) {
-          // Slippage on entry: buyer pays slightly more
-          const filledPrice = price * (1 + slippageFactor);
-          openPosition = { side: 'buy', entryPrice: filledPrice, entryTime: time, entryRsi: rsi };
-        } else if (signal === 'sell' && openPosition?.side === 'buy') {
-          // Slippage on exit: seller receives slightly less
-          const filledPrice = price * (1 - slippageFactor);
-          const pnl = calculatePnL(openPosition.entryPrice, filledPrice, params.quantity, 'buy') - commissionPerTrade * 2;
-          runningEquity += pnl;
-          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, entryContext: null, exitReason: null, pnl, isOpen: false });
-          equityCurve.push({ timestamp: time, equity: runningEquity });
-          openPosition = null;
-        }
-      } else {
-        if (signal === 'sell' && openPosition === null) {
-          const filledPrice = price * (1 - slippageFactor);
-          openPosition = { side: 'sell', entryPrice: filledPrice, entryTime: time, entryRsi: rsi };
-        } else if (signal === 'buy' && openPosition?.side === 'sell') {
-          const filledPrice = price * (1 + slippageFactor);
-          const pnl = calculatePnL(openPosition.entryPrice, filledPrice, params.quantity, 'sell') - commissionPerTrade * 2;
-          runningEquity += pnl;
-          trades.push({ entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice: filledPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, entryContext: null, exitReason: null, pnl, isOpen: false });
-          equityCurve.push({ timestamp: time, equity: runningEquity });
-          openPosition = null;
-        }
+      const result = this.processRsiBar(
+        signal, closePrices[i], timestamps[i], rsi,
+        params.executionMode, openPosition, params, slippageFactor, commissionPerTrade,
+      );
+      openPosition = result.openPosition;
+      if (result.closedTrade) {
+        runningEquity += result.pnl!;
+        trades.push(result.closedTrade);
+        equityCurve.push({ timestamp: timestamps[i], equity: runningEquity });
       }
     }
 
@@ -256,28 +247,7 @@ export class BlueprintsService {
       trades.push({ entryTime: openPosition.entryTime, exitTime: null, side: openPosition.side, entryPrice: openPosition.entryPrice, exitPrice: null, entryRsi: openPosition.entryRsi, exitRsi: null, entryContext: null, exitReason: null, pnl: null, isOpen: true });
     }
 
-    const closedTrades = trades.filter((t) => !t.isOpen);
-    const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
-    const winCount = closedTrades.filter((t) => (t.pnl ?? 0) > 0).length;
-    const lossCount = closedTrades.filter((t) => (t.pnl ?? 0) < 0).length;
-    const winRate = winCount + lossCount > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
-    const maxDrawdown = this.calculateMaxDrawdown(equityCurve.map((e) => e.equity));
-    const sharpeRatio = this.calculateSharpeRatio(closedTrades.map((t) => t.pnl ?? 0));
-
-    return {
-      symbol,
-      timeframe,
-      barsAnalyzed: bars.length,
-      trades,
-      totalPnL,
-      winRate,
-      totalTrades: trades.length,
-      winCount,
-      lossCount,
-      equityCurve,
-      maxDrawdown,
-      sharpeRatio,
-    };
+    return this.buildBacktestResult(trades, equityCurve, bars.length, symbol, timeframe);
   }
 
   // ── ICT Backtest ───────────────────────────────────────────────────────────
@@ -306,15 +276,6 @@ export class BlueprintsService {
 
     const slippageFactor = slippagePct / 100;
 
-    type OpenIctPosition = {
-      side: 'buy' | 'sell';
-      entryPrice: number;
-      entryTime: string;
-      stopLossPrice: number;
-      takeProfitPrice: number;
-      entryContext: string;
-    };
-
     let openPosition: OpenIctPosition | null = null;
     const trades: BacktestTradeDto[] = [];
     let runningEquity = 0;
@@ -329,54 +290,14 @@ export class BlueprintsService {
 
       // Check if an open limit order was filled on this bar
       if (openPosition !== null) {
-        const fillResult = checkLimitOrderFill(currentBar, openPosition);
-        if (fillResult === 'TP') {
-          const exitPrice = openPosition.takeProfitPrice;
-          const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, openPosition.side) - commissionPerTrade * 2;
-          runningEquity += pnl;
-          trades.push({
-            entryTime: openPosition.entryTime,
-            exitTime: currentBar.timestamp.toISOString(),
-            side: openPosition.side,
-            entryPrice: openPosition.entryPrice,
-            exitPrice,
-            entryRsi: null,
-            exitRsi: null,
-            entryContext: openPosition.entryContext,
-            exitReason: 'TP',
-            pnl,
-            isOpen: false,
-          });
+        const closed = this.tryCloseIctPosition(openPosition, currentBar, params, slippageFactor, commissionPerTrade);
+        if (closed !== null) {
+          runningEquity += closed.pnl;
+          trades.push(closed.trade);
           equityCurve.push({ timestamp: currentBar.timestamp.toISOString(), equity: runningEquity });
           openPosition = null;
-          continue;
         }
-        if (fillResult === 'SL') {
-          // Apply slippage on SL fill (adverse fill)
-          const rawExit = openPosition.stopLossPrice;
-          const exitPrice = openPosition.side === 'buy'
-            ? rawExit * (1 - slippageFactor)
-            : rawExit * (1 + slippageFactor);
-          const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, openPosition.side) - commissionPerTrade * 2;
-          runningEquity += pnl;
-          trades.push({
-            entryTime: openPosition.entryTime,
-            exitTime: currentBar.timestamp.toISOString(),
-            side: openPosition.side,
-            entryPrice: openPosition.entryPrice,
-            exitPrice,
-            entryRsi: null,
-            exitRsi: null,
-            entryContext: openPosition.entryContext,
-            exitReason: 'SL',
-            pnl,
-            isOpen: false,
-          });
-          equityCurve.push({ timestamp: currentBar.timestamp.toISOString(), equity: runningEquity });
-          openPosition = null;
-          continue;
-        }
-        // Order still pending — skip new entry this bar
+        // Whether closed or still pending, skip new entry this bar
         continue;
       }
 
@@ -425,6 +346,91 @@ export class BlueprintsService {
       });
     }
 
+    return this.buildBacktestResult(trades, equityCurve, m5Bars.length, symbol, '5Min');
+  }
+
+  /** Processes a single RSI bar tick: opens or closes a position depending on signal and mode.
+   *  Returns the updated open position and an optional closed trade with its realised pnl. */
+  private processRsiBar(
+    signal: string,
+    price: number,
+    time: string,
+    rsi: number,
+    executionMode: string,
+    openPosition: OpenRsiPosition | null,
+    params: RsiParametersDto,
+    slippageFactor: number,
+    commissionPerTrade: number,
+  ): { openPosition: OpenRsiPosition | null; closedTrade?: BacktestTradeDto; pnl?: number } {
+    if (executionMode === 'BUY_LOW_SELL_HIGH') {
+      if (signal === 'buy' && openPosition === null) {
+        return { openPosition: { side: 'buy', entryPrice: price * (1 + slippageFactor), entryTime: time, entryRsi: rsi } };
+      }
+      if (signal === 'sell' && openPosition?.side === 'buy') {
+        const exitPrice = price * (1 - slippageFactor);
+        const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, 'buy') - commissionPerTrade * 2;
+        return { openPosition: null, pnl, closedTrade: { entryTime: openPosition.entryTime, exitTime: time, side: 'buy', entryPrice: openPosition.entryPrice, exitPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, entryContext: null, exitReason: null, pnl, isOpen: false } };
+      }
+    } else {
+      if (signal === 'sell' && openPosition === null) {
+        return { openPosition: { side: 'sell', entryPrice: price * (1 - slippageFactor), entryTime: time, entryRsi: rsi } };
+      }
+      if (signal === 'buy' && openPosition?.side === 'sell') {
+        const exitPrice = price * (1 + slippageFactor);
+        const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, 'sell') - commissionPerTrade * 2;
+        return { openPosition: null, pnl, closedTrade: { entryTime: openPosition.entryTime, exitTime: time, side: 'sell', entryPrice: openPosition.entryPrice, exitPrice, entryRsi: openPosition.entryRsi, exitRsi: rsi, entryContext: null, exitReason: null, pnl, isOpen: false } };
+      }
+    }
+    return { openPosition };
+  }
+
+  /** Attempts to close an open ICT limit-order position on the given bar.
+   *  Returns the closed trade + realised pnl if TP or SL was hit, null if still pending. */
+  private tryCloseIctPosition(
+    openPosition: OpenIctPosition,
+    currentBar: MarketBarDto,
+    params: IctParametersDto,
+    slippageFactor: number,
+    commissionPerTrade: number,
+  ): { trade: BacktestTradeDto; pnl: number } | null {
+    const fillResult = checkLimitOrderFill(currentBar, openPosition);
+    if (fillResult === null) return null;
+
+    const exitTime = currentBar.timestamp.toISOString();
+    let exitPrice: number;
+    if (fillResult === 'TP') {
+      exitPrice = openPosition.takeProfitPrice;
+    } else {
+      // SL: apply adverse slippage
+      const raw = openPosition.stopLossPrice;
+      exitPrice = openPosition.side === 'buy' ? raw * (1 - slippageFactor) : raw * (1 + slippageFactor);
+    }
+
+    const pnl = calculatePnL(openPosition.entryPrice, exitPrice, params.quantity, openPosition.side) - commissionPerTrade * 2;
+    const trade: BacktestTradeDto = {
+      entryTime: openPosition.entryTime,
+      exitTime,
+      side: openPosition.side,
+      entryPrice: openPosition.entryPrice,
+      exitPrice,
+      entryRsi: null,
+      exitRsi: null,
+      entryContext: openPosition.entryContext,
+      exitReason: fillResult,
+      pnl,
+      isOpen: false,
+    };
+    return { trade, pnl };
+  }
+
+  /** Computes the final BacktestResultDto from the collected trades and equity curve. */
+  private buildBacktestResult(
+    trades: BacktestTradeDto[],
+    equityCurve: EquityPoint[],
+    barsAnalyzed: number,
+    symbol: string,
+    timeframe: MarketDataTimeframe,
+  ): BacktestResultDto {
     const closedTrades = trades.filter((t) => !t.isOpen);
     const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
     const winCount = closedTrades.filter((t) => (t.pnl ?? 0) > 0).length;
@@ -432,21 +438,7 @@ export class BlueprintsService {
     const winRate = winCount + lossCount > 0 ? (winCount / (winCount + lossCount)) * 100 : 0;
     const maxDrawdown = this.calculateMaxDrawdown(equityCurve.map((e) => e.equity));
     const sharpeRatio = this.calculateSharpeRatio(closedTrades.map((t) => t.pnl ?? 0));
-
-    return {
-      symbol,
-      timeframe: '5Min',
-      barsAnalyzed: m5Bars.length,
-      trades,
-      totalPnL,
-      winRate,
-      totalTrades: trades.length,
-      winCount,
-      lossCount,
-      equityCurve,
-      maxDrawdown,
-      sharpeRatio,
-    };
+    return { symbol, timeframe, barsAnalyzed, trades, totalPnL, winRate, totalTrades: trades.length, winCount, lossCount, equityCurve, maxDrawdown, sharpeRatio };
   }
 
   /** Peak-to-trough maximum drawdown (in equity units). */

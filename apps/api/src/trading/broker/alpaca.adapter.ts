@@ -121,11 +121,10 @@ export class AlpacaAdapter implements IBrokerAdapter {
       const symbolBars = (bars as Record<string, unknown>)[symbol];
       if (!Array.isArray(symbolBars)) break;
 
-      allBars.push(
-        ...symbolBars
-          .map((row) => this.parseBar(row, symbol))
-          .filter((row): row is MarketBarDto => row !== null),
-      );
+      const parsed = symbolBars
+        .map((row) => this.parseBar(row, symbol))
+        .filter((row): row is MarketBarDto => row !== null);
+      allBars.push(...parsed);
 
       nextPageToken = (payload['next_page_token'] as string | null) ?? null;
     } while (nextPageToken !== null && allBars.length < limit);
@@ -270,14 +269,9 @@ export class AlpacaAdapter implements IBrokerAdapter {
 
     for (const candidate of symbolCandidates) {
       try {
-        const bars = await client.getBarsV2(candidate, {
-          timeframe: '1Min',
-          limit: 1,
-        });
-
-        for await (const bar of bars) {
-          return bar.ClosePrice as number;
-        }
+        const barQuery = { timeframe: '1Min', limit: 1 };
+        const bars = await client.getBarsV2(candidate, barQuery);
+        for await (const bar of bars) return bar.ClosePrice as number;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown Alpaca bars error');
         lastError = error;
@@ -351,13 +345,8 @@ export class AlpacaAdapter implements IBrokerAdapter {
 
     for (const candidate of symbolCandidates) {
       try {
-        order = (await client.createOrder({
-          symbol: candidate,
-          qty: params.quantity,
-          side: params.side,
-          type: 'market',
-          time_in_force: 'day',
-        })) as Record<string, unknown>;
+        const orderParams = { symbol: candidate, qty: params.quantity, side: params.side, type: 'market', time_in_force: 'day' };
+        order = (await client.createOrder(orderParams)) as Record<string, unknown>;
         placedSymbol = candidate;
         break;
       } catch (err) {
@@ -378,14 +367,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
       `Market order placed: ${params.side.toUpperCase()} ${params.quantity} ${placedSymbol} — orderId=${order['id']}`,
     );
 
-    return {
-      orderId: order['id'] as string,
-      symbol: order['symbol'] as string,
-      side: order['side'] as OrderSide,
-      quantity: Number(order['qty']),
-      filledPrice: Number(order['filled_avg_price'] ?? 0),
-      status: (order['status'] as OrderStatus) ?? OrderStatus.PENDING,
-    };
+    return this.mapOrderResult(order);
   }
 
   private async placeBracketLimitOrder(
@@ -400,17 +382,14 @@ export class AlpacaAdapter implements IBrokerAdapter {
 
     for (const candidate of symbolCandidates) {
       try {
-        order = (await client.createOrder({
-          symbol: candidate,
-          qty: params.quantity,
-          side: params.side,
-          type: 'limit',
-          time_in_force: 'day',
-          order_class: 'bracket',
+        const orderParams = {
+          symbol: candidate, qty: params.quantity, side: params.side,
+          type: 'limit', time_in_force: 'day', order_class: 'bracket',
           limit_price: limitPrice,
           stop_loss: { stop_price: stopLossPrice },
           take_profit: { limit_price: takeProfitPrice },
-        })) as Record<string, unknown>;
+        };
+        order = (await client.createOrder(orderParams)) as Record<string, unknown>;
         placedSymbol = candidate;
         break;
       } catch (err) {
@@ -434,14 +413,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
         ` limit=${limitPrice} sl=${stopLossPrice} tp=${takeProfitPrice} — orderId=${order['id']}`,
     );
 
-    return {
-      orderId: order['id'] as string,
-      symbol: order['symbol'] as string,
-      side: order['side'] as OrderSide,
-      quantity: Number(order['qty']),
-      filledPrice: Number(order['filled_avg_price'] ?? 0),
-      status: (order['status'] as OrderStatus) ?? OrderStatus.PENDING,
-    };
+    return this.mapOrderResult(order);
   }
 
   async placeOrder(params: OrderParams): Promise<OrderResult> {
@@ -476,6 +448,17 @@ export class AlpacaAdapter implements IBrokerAdapter {
     } catch {
       return false;
     }
+  }
+
+  private mapOrderResult(order: Record<string, unknown>): OrderResult {
+    return {
+      orderId: order['id'] as string,
+      symbol: order['symbol'] as string,
+      side: order['side'] as OrderSide,
+      quantity: Number(order['qty']),
+      filledPrice: Number(order['filled_avg_price'] ?? 0),
+      status: (order['status'] as OrderStatus) ?? OrderStatus.PENDING,
+    };
   }
 
   private mapPositions(raw: Array<Record<string, unknown>>): Position[] {
