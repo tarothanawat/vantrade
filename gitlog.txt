@@ -1,0 +1,974 @@
+commit 0f4a60c65db6429a98185125c5023c20e73aaac1
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Tue Apr 14 19:59:06 2026 +0700
+
+    feat: add SubscriptionCard component and useSubscriptions hook for managing subscriptions and displaying stats
+
+:000000 100644 0000000 5f3b45a A	apps/web/src/components/subscriptions/SubscriptionCard.tsx
+:000000 100644 0000000 8dbecc6 A	apps/web/src/hooks/use-subscriptions.ts
+:100644 100644 0007a12 1a7e4ef M	package.json
+142	0	apps/web/src/components/subscriptions/SubscriptionCard.tsx
+73	0	apps/web/src/hooks/use-subscriptions.ts
+10	1	package.json
+
+commit 305a54ca44900572c887f6f9820574d9f50eba35
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Tue Apr 14 19:58:47 2026 +0700
+
+    feat: implement user management features with role assignment and user listing
+
+:100644 100644 e9a25b8 6097c95 M	.claude/settings.local.json
+:100644 100644 ffe4df8 e50f30b M	apps/api/src/auth/auth.controller.ts
+:100644 100644 a476d5f 5bb5f15 M	apps/api/src/auth/auth.repository.ts
+:100644 100644 bc2be3d 8dd1592 M	apps/api/src/auth/auth.service.ts
+:100644 100644 c9e99d1 dbda180 M	apps/web/src/app/(dashboard)/admin/page.tsx
+:100644 100644 4f5588d 265639e M	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+:000000 100644 0000000 fb16ac2 A	apps/web/src/lib/api-client/users.client.ts
+:100644 100644 c932cb0 94426fe M	packages/types/src/schemas/auth.schema.ts
+13	1	.claude/settings.local.json
+25	2	apps/api/src/auth/auth.controller.ts
+15	0	apps/api/src/auth/auth.repository.ts
+12	1	apps/api/src/auth/auth.service.ts
+147	63	apps/web/src/app/(dashboard)/admin/page.tsx
+13	186	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+10	0	apps/web/src/lib/api-client/users.client.ts
+12	0	packages/types/src/schemas/auth.schema.ts
+
+commit e1729d91859a55a04163d385aff1e73cc3daf87b
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 21:32:57 2026 +0700
+
+    Final Commit
+    
+    - Update README with technology stack, user roles & permissions table, architecture overview, and screenshots section
+    - Add System Requirements and Database Design sections to FINAL_REPORT
+    - Fix duplicate Architecture Decision Summary table in FINAL_REPORT
+    - Renumber report sections sequentially (1-7)
+    - Allow ADMIN role to run backtests on blueprints
+
+:100644 100644 1bdd325 6c7c4c2 M	README.md
+:100644 100644 7f840c3 800a1d7 M	apps/api/src/blueprints/blueprints.controller.ts
+:000000 100644 0000000 b88728b A	docs/FINAL_REPORT.md
+117	24	README.md
+4	4	apps/api/src/blueprints/blueprints.controller.ts
+536	0	docs/FINAL_REPORT.md
+
+commit 692ff0a167dbaf80deec9b8306f26bdafa0b2f44
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 20:39:18 2026 +0700
+
+    feat: enhance trading functionality with bracket limit order support and update API client types
+
+:000000 100644 0000000 4eff648 A	apps/api/src/heartbeat/market-hours.ict.spec.ts
+:100644 100644 c9c27a0 47c51d4 M	apps/api/src/positions/positions.service.spec.ts
+:100644 100644 d1625d4 d2b61d6 M	apps/api/src/positions/positions.service.ts
+:100644 100644 d99b049 954f968 M	apps/api/src/subscriptions/subscriptions.service.spec.ts
+:100644 100644 9f91103 ef1b9d2 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 96091b6 00bd56d M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:100644 100644 9e65988 471be6b M	apps/web/src/components/marketplace/BacktestPanel.tsx
+:100644 100644 c6ace82 469c37d M	apps/web/src/components/marketplace/BacktestPreviewPanel.tsx
+:100644 100644 6a9cd7e ec8eda9 M	apps/web/src/lib/api-client/base.ts
+:100644 100644 1bb54ce d0acdf1 M	apps/web/src/lib/api-client/blueprints.client.ts
+:100644 100644 f3060f4 fcfe86d M	packages/types/src/interfaces/IBrokerAdapter.ts
+:100644 100644 0426823 ef721f4 M	packages/types/src/interfaces/index.ts
+:100644 100644 ff7255e 5085f4e M	packages/types/src/schemas/blueprint.schema.ts
+83	0	apps/api/src/heartbeat/market-hours.ict.spec.ts
+4	4	apps/api/src/positions/positions.service.spec.ts
+2	1	apps/api/src/positions/positions.service.ts
+114	1	apps/api/src/subscriptions/subscriptions.service.spec.ts
+69	1	apps/api/src/trading/broker/alpaca.adapter.ts
+5	3	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+1	1	apps/web/src/components/marketplace/BacktestPanel.tsx
+13	5	apps/web/src/components/marketplace/BacktestPreviewPanel.tsx
+8	6	apps/web/src/lib/api-client/base.ts
+12	9	apps/web/src/lib/api-client/blueprints.client.ts
+8	0	packages/types/src/interfaces/IBrokerAdapter.ts
+3	10	packages/types/src/interfaces/index.ts
+57	1	packages/types/src/schemas/blueprint.schema.ts
+
+commit 6876374b09ae75a19a2cd1e6c89b597e66781c87
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 20:38:57 2026 +0700
+
+    feat: add comprehensive unit tests for trading engine functions
+    
+    - Implemented unit tests for aggregateBars, detectSwingPoints, detectMarketStructure, detectOrderBlock, detectFairValueGap, classifyPriceZone, hasLiquiditySweep, checkLimitOrderFill, and generateIctSignal functions.
+    - Enhanced trading engine with additional type definitions and improved logic for market structure detection and order block identification.
+    - Ensured robust testing for various market scenarios, including bullish and bearish trends, liquidity sweeps, and price zone classifications.
+
+:100644 100644 81a75ed 1d8e894 M	apps/api/src/heartbeat/heartbeat.service.ts
+:000000 100644 0000000 f476d35 A	apps/api/src/trading/trading.engine.ict.spec.ts
+:100644 100644 0d6aa3b d4fad77 M	apps/api/src/trading/trading.engine.ts
+216	84	apps/api/src/heartbeat/heartbeat.service.ts
+494	0	apps/api/src/trading/trading.engine.ict.spec.ts
+502	1	apps/api/src/trading/trading.engine.ts
+
+commit a51651a9a75fe9800b2e92bf7a7aeffe0950471c
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 20:38:35 2026 +0700
+
+    feat(blueprints): add ICT strategy support with dry-run and backtest functionality
+
+:000000 100644 0000000 6cc2b67 A	apps/api/src/blueprints/blueprints.service.ict.spec.ts
+:100644 100644 4d7cf42 37b2682 M	apps/api/src/blueprints/blueprints.service.spec.ts
+:100644 100644 3f544d1 ef35e55 M	apps/api/src/blueprints/blueprints.service.ts
+365	0	apps/api/src/blueprints/blueprints.service.ict.spec.ts
+17	17	apps/api/src/blueprints/blueprints.service.spec.ts
+232	10	apps/api/src/blueprints/blueprints.service.ts
+
+commit 2255143d87c15cbdf2936c926542f8e349e730fc
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 15:59:47 2026 +0700
+
+    feat: implement throttling guard and enhance logging with IP tracking
+
+:100644 100644 4f3f2d0 0bfeaf4 M	apps/api/src/app.module.ts
+:100644 100644 8c2d279 3f544d1 M	apps/api/src/blueprints/blueprints.service.ts
+:100644 100644 9e90eef a6dbae0 M	apps/api/src/common/interceptors/logging.interceptor.ts
+:000000 100644 0000000 c23265d A	apps/api/src/common/logger/json-logger.service.ts
+:100644 100644 5ff7497 81a75ed M	apps/api/src/heartbeat/heartbeat.service.ts
+:100644 100644 f271a96 530deef M	apps/api/src/heartbeat/market-hours.util.ts
+:100644 100644 8c6d9fc 1781f97 M	apps/api/src/trade-logs/trade-logs.repository.ts
+:100644 100644 26aebac 131ca68 M	packages/types/src/schemas/api-key.schema.ts
+:100644 100644 9436d8f 6c1865a M	packages/types/src/schemas/backtest.schema.ts
+7	1	apps/api/src/app.module.ts
+51	6	apps/api/src/blueprints/blueprints.service.ts
+11	4	apps/api/src/common/interceptors/logging.interceptor.ts
+67	0	apps/api/src/common/logger/json-logger.service.ts
+41	9	apps/api/src/heartbeat/heartbeat.service.ts
+33	0	apps/api/src/heartbeat/market-hours.util.ts
+2	1	apps/api/src/trade-logs/trade-logs.repository.ts
+14	0	packages/types/src/schemas/api-key.schema.ts
+10	2	packages/types/src/schemas/backtest.schema.ts
+
+commit b34997a0b3229a322dca50e7e37c94ab8e28d253
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 15:59:15 2026 +0700
+
+    feat(api-keys): enhance API key management with label support and list functionality
+
+:100644 100644 0b6f072 e9a25b8 M	.claude/settings.local.json
+:100644 100644 6b7bedb ab505f4 M	apps/api/package.json
+:100644 100644 9ec23bf e47eaed M	apps/api/src/api-keys/api-keys.controller.ts
+:100644 100644 8d733f9 7abd682 M	apps/api/src/api-keys/api-keys.repository.ts
+:100644 100644 0855f67 ad4f40d M	apps/api/src/api-keys/api-keys.service.spec.ts
+:100644 100644 6a8f25f 8dc0c25 M	apps/api/src/api-keys/api-keys.service.ts
+:100644 100644 35b34c6 85dabec M	apps/api/src/main.ts
+14	1	.claude/settings.local.json
+1	0	apps/api/package.json
+18	11	apps/api/src/api-keys/api-keys.controller.ts
+10	6	apps/api/src/api-keys/api-keys.repository.ts
+130	24	apps/api/src/api-keys/api-keys.service.spec.ts
+16	11	apps/api/src/api-keys/api-keys.service.ts
+4	2	apps/api/src/main.ts
+
+commit 687fe86efa90485322bb09243850e0bdeaba08cc
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 15:42:34 2026 +0700
+
+    feat(prisma): add unique constraint to ApiKey and update TradeLog side type
+
+:000000 100644 0000000 dd5f455 A	apps/api/prisma/migrations/20260413073322_added_two_api_keyd/migration.sql
+:100644 100644 75a8ed0 704c419 M	apps/api/prisma/schema.prisma
+22	0	apps/api/prisma/migrations/20260413073322_added_two_api_keyd/migration.sql
+11	2	apps/api/prisma/schema.prisma
+
+commit d2ad86c071381295021a70778df71fe1874311d1
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 15:41:56 2026 +0700
+
+    feat(market hours timezone): Market hours timezone is now configurable
+
+:100644 100644 33c6691 ec4177b M	apps/api/.env.example
+:100644 100644 cfac820 f271a96 M	apps/api/src/heartbeat/market-hours.util.ts
+4	0	apps/api/.env.example
+3	1	apps/api/src/heartbeat/market-hours.util.ts
+
+commit 25af70afd87b40d2383215c7545837dd0095f3f5
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 15:41:05 2026 +0700
+
+    fix(prisma): deleted duplicate prisma schema
+
+:100644 000000 75a8ed0 0000000 D	prisma/schema.prisma
+:100644 000000 8c51a3a 0000000 D	prisma/seed.ts
+0	78	prisma/schema.prisma
+0	80	prisma/seed.ts
+
+commit 8c43bc602b084028681b794ecc2ec7661f615975
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Mon Apr 13 01:31:28 2026 +0700
+
+    feat: add market hours utility functions and symbol normalizer
+    
+    - Implemented utility functions for determining US market hours, including `getEasternTimeParts`, `isUsMarketOpen`, and `isMarketOpenForSymbol`.
+    - Created a symbol normalizer with functions to normalize symbols, identify crypto-like symbols, and generate symbol candidates.
+    - Refactored AlpacaAdapter to utilize the new symbol normalizer and market hours utilities.
+    - Introduced a custom hook `useMarketBars` for fetching market data bars with error handling and loading states.
+    - Enhanced the MyBlueprintsPage component to use the new `useMarketBars` hook and improved the structure by creating `BlueprintCard` and `RsiPreviewChart` components for better code organization and readability.
+
+:100644 100644 dd6b807 5ff7497 M	apps/api/src/heartbeat/heartbeat.service.ts
+:000000 100644 0000000 cfac820 A	apps/api/src/heartbeat/market-hours.util.ts
+:100644 100644 e5efbed 9f91103 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:000000 100644 0000000 7bce0cf A	apps/api/src/trading/broker/symbol-normalizer.ts
+:100644 100644 d3ef660 96091b6 M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:000000 100644 0000000 862afe2 A	apps/web/src/components/blueprints/BlueprintCard.tsx
+:000000 100644 0000000 bccd32e A	apps/web/src/components/blueprints/RsiPreviewChart.tsx
+:000000 100644 0000000 f5125ef A	apps/web/src/hooks/use-market-bars.ts
+6	68	apps/api/src/heartbeat/heartbeat.service.ts
+68	0	apps/api/src/heartbeat/market-hours.util.ts
+44	108	apps/api/src/trading/broker/alpaca.adapter.ts
+51	0	apps/api/src/trading/broker/symbol-normalizer.ts
+29	235	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+98	0	apps/web/src/components/blueprints/BlueprintCard.tsx
+85	0	apps/web/src/components/blueprints/RsiPreviewChart.tsx
+60	0	apps/web/src/hooks/use-market-bars.ts
+
+commit 9532fd290209b44a04555f598ccd2ebadccfaf76
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sun Apr 12 23:18:35 2026 +0700
+
+    Refactor code structure for improved readability and maintainability
+
+:100644 100644 d9ae3f3 0b6f072 M	.claude/settings.local.json
+:100644 100644 95b72e8 1bb54ce M	apps/web/src/lib/api-client/blueprints.client.ts
+:100644 100644 47652c9 19c38b2 M	apps/web/src/lib/api-client/subscriptions.client.ts
+:000000 100644 0000000 0d5c079 A	gitlog.cc.json
+:100644 100644 200778e 7cfaebd M	packages/types/src/index.ts
+:100644 100644 b61381b 68a2c47 M	packages/types/src/schemas/subscription.schema.ts
+:000000 100644 0000000 ef3ea6a A	rawtext.cc.json
+:000000 100644 0000000 ed08568 A	repo-files.txt
+:000000 100644 0000000 7b11377 A	vantrade.cc.json
+45	1	.claude/settings.local.json
+17	0	apps/web/src/lib/api-client/blueprints.client.ts
+4	0	apps/web/src/lib/api-client/subscriptions.client.ts
+1	0	gitlog.cc.json
+1	0	packages/types/src/index.ts
+12	0	packages/types/src/schemas/subscription.schema.ts
+1	0	rawtext.cc.json
+118	0	repo-files.txt
+1	0	vantrade.cc.json
+
+commit 2859a0d45688c2b77a4a4618eb20183732549f12
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sun Apr 12 23:18:20 2026 +0700
+
+    feat: add BacktestPanel and BacktestPreviewPanel components for strategy backtesting
+    
+    - Implemented BacktestPanel for running backtests on blueprints with user-defined parameters.
+    - Added BacktestPreviewPanel for previewing backtest results based on blueprint parameters.
+    - Updated MyBlueprintsPage to include expandable backtest functionality for each blueprint.
+    - Enhanced SubscriptionsPage to display performance statistics for subscriptions.
+    - Introduced new Zod schemas for backtest queries and results to validate data structures.
+
+:100644 100644 7a91ac4 7f840c3 M	apps/api/src/blueprints/blueprints.controller.ts
+:100644 100644 303347a 4d7cf42 M	apps/api/src/blueprints/blueprints.service.spec.ts
+:100644 100644 24e6db9 8c2d279 M	apps/api/src/blueprints/blueprints.service.ts
+:100644 100644 1627af4 e5efbed M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 34ca4c5 dd18d55 M	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+:100644 100644 08b61f6 d3ef660 M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:100644 100644 1e6a532 4f5588d M	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+:000000 100644 0000000 9e65988 A	apps/web/src/components/marketplace/BacktestPanel.tsx
+:000000 100644 0000000 c6ace82 A	apps/web/src/components/marketplace/BacktestPreviewPanel.tsx
+:000000 100644 0000000 9436d8f A	packages/types/src/schemas/backtest.schema.ts
+26	0	apps/api/src/blueprints/blueprints.controller.ts
+201	0	apps/api/src/blueprints/blueprints.service.spec.ts
+115	1	apps/api/src/blueprints/blueprints.service.ts
+70	41	apps/api/src/trading/broker/alpaca.adapter.ts
+7	0	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+27	0	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+143	60	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+264	0	apps/web/src/components/marketplace/BacktestPanel.tsx
+256	0	apps/web/src/components/marketplace/BacktestPreviewPanel.tsx
+47	0	packages/types/src/schemas/backtest.schema.ts
+
+commit 39ee11807acdd8bc847546cb65c14d0983f1a1b9
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sun Apr 12 08:10:14 2026 +0700
+
+    feat (interactive chart): Fixed a problem where chart dragging freezes
+
+:100644 100644 a319d75 d9ae3f3 M	.claude/settings.local.json
+:100644 100644 938952e 1627af4 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 ee73179 f8f1c98 M	apps/web/src/app/(dashboard)/market-data/page.tsx
+:100644 100644 40fe49c 08b61f6 M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:100644 100644 d03a886 9b684ef M	apps/web/src/components/market/InteractiveMarketChart.tsx
+2	1	.claude/settings.local.json
+20	2	apps/api/src/trading/broker/alpaca.adapter.ts
+176	179	apps/web/src/app/(dashboard)/market-data/page.tsx
+12	16	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+478	436	apps/web/src/components/market/InteractiveMarketChart.tsx
+
+commit ae70cb762a458713195c4db5a23acf3d0efcffd1
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sun Apr 12 02:44:47 2026 +0700
+
+    feat: enhance InteractiveMarketChart; add cursor tracking and price indicators
+
+:100644 100644 91e38e8 a319d75 M	.claude/settings.local.json
+:100644 100644 20fe154 d03a886 M	apps/web/src/components/market/InteractiveMarketChart.tsx
+2	1	.claude/settings.local.json
+334	37	apps/web/src/components/market/InteractiveMarketChart.tsx
+
+commit a1e9d7e44991bafb836f53f477f06dc139d2ed4d
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sun Apr 12 02:27:36 2026 +0700
+
+    feat: remove outputs from test task in turbo.json for consistency
+
+:100644 100644 880a5ba d4821a3 M	turbo.json
+1	2	turbo.json
+
+commit 9460617a4a031463e5be6e55d9b129d92c67bc60
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sun Apr 12 02:27:27 2026 +0700
+
+    feat: update PostgreSQL setup instructions; clarify local and hosted options
+
+:100644 100644 dcef9da 1bdd325 M	README.md
+25	1	README.md
+
+commit d5d55e384a6888b9d4f004773ee45464e649446c
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:46:41 2026 +0700
+
+    feat: update architecture documentation; enhance clarity and structure of sections
+
+:100644 100644 0cf0094 d751f93 M	docs/ARCHITECTURE.md
+301	121	docs/ARCHITECTURE.md
+
+commit 6c77406849cc74429d344f8c37374ad951745441
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:46:34 2026 +0700
+
+    feat: add import for Role enum in auth schema
+
+:100644 100644 481809b c932cb0 M	packages/types/src/schemas/auth.schema.ts
+1	0	packages/types/src/schemas/auth.schema.ts
+
+commit 15f5088267f37213b847c4f0f4711f3f35746e61
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:46:27 2026 +0700
+
+    feat: enhance subscriptions functionality; add pagination to findTradeLogsBySubscription and implement getStats method
+    feat: add unit tests for SubscriptionsService; cover getStats and findTradeLogsBySubscription methods
+    feat: implement getPositionsWithCredentials and verifyCredentials methods in AlpacaAdapter; enhance position mapping
+    feat: define new methods in IBrokerAdapter for fetching positions and verifying credentials
+
+:100644 100644 35fb3d3 7b0dacc M	apps/api/src/subscriptions/subscriptions.controller.ts
+:000000 100644 0000000 d99b049 A	apps/api/src/subscriptions/subscriptions.service.spec.ts
+:100644 100644 9750134 bfe2268 M	apps/api/src/subscriptions/subscriptions.service.ts
+:100644 100644 0247b3c 8c6d9fc M	apps/api/src/trade-logs/trade-logs.repository.ts
+:100644 100644 261ce9a 938952e M	apps/api/src/trading/broker/alpaca.adapter.ts
+:000000 100644 0000000 1b91229 A	apps/web/src/lib/api-client/base.spec.ts
+:100644 100644 43b49e5 f3060f4 M	packages/types/src/interfaces/IBrokerAdapter.ts
+18	2	apps/api/src/subscriptions/subscriptions.controller.ts
+107	0	apps/api/src/subscriptions/subscriptions.service.spec.ts
+10	2	apps/api/src/subscriptions/subscriptions.service.ts
+46	0	apps/api/src/trade-logs/trade-logs.repository.ts
+21	1	apps/api/src/trading/broker/alpaca.adapter.ts
+182	0	apps/web/src/lib/api-client/base.spec.ts
+5	0	packages/types/src/interfaces/IBrokerAdapter.ts
+
+commit 25878de35683c446acfccd128fe09b06b50aaae7
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:46:10 2026 +0700
+
+    feat: implement positions functionality; add PositionsController and PositionsService with getPositions method
+
+:000000 100644 0000000 f054695 A	apps/api/src/positions/positions.controller.ts
+:000000 100644 0000000 e5eecec A	apps/api/src/positions/positions.module.ts
+:000000 100644 0000000 c9c27a0 A	apps/api/src/positions/positions.service.spec.ts
+:000000 100644 0000000 d1625d4 A	apps/api/src/positions/positions.service.ts
+19	0	apps/api/src/positions/positions.controller.ts
+13	0	apps/api/src/positions/positions.module.ts
+70	0	apps/api/src/positions/positions.service.spec.ts
+22	0	apps/api/src/positions/positions.service.ts
+
+commit c5916002848758f2ddd5b9c8286f85209e84c915
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:45:59 2026 +0700
+
+    feat: implement heartbeat status functionality; add getStatus method to HeartbeatService and HeartbeatController
+
+:000000 100644 0000000 773c488 A	apps/api/src/heartbeat/heartbeat.controller.ts
+:100644 100644 6ba11fe f9cfa89 M	apps/api/src/heartbeat/heartbeat.module.ts
+:100644 100644 7e5d6fd 4a830df M	apps/api/src/heartbeat/heartbeat.service.spec.ts
+:100644 100644 c8e135d dd6b807 M	apps/api/src/heartbeat/heartbeat.service.ts
+18	0	apps/api/src/heartbeat/heartbeat.controller.ts
+2	0	apps/api/src/heartbeat/heartbeat.module.ts
+40	0	apps/api/src/heartbeat/heartbeat.service.spec.ts
+12	0	apps/api/src/heartbeat/heartbeat.service.ts
+
+commit 6fdf1b78788d5407608da7783454eab8b79c6c03
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:45:45 2026 +0700
+
+    feat: add getDryRunSignal method to BlueprintsService; implement logging interceptor for HTTP requests
+
+:100644 100644 26254ac 7a91ac4 M	apps/api/src/blueprints/blueprints.controller.ts
+:100644 100644 052bcb6 b095b51 M	apps/api/src/blueprints/blueprints.module.ts
+:000000 100644 0000000 303347a A	apps/api/src/blueprints/blueprints.service.spec.ts
+:100644 100644 5e0ba2a 24e6db9 M	apps/api/src/blueprints/blueprints.service.ts
+:000000 100644 0000000 9e90eef A	apps/api/src/common/interceptors/logging.interceptor.ts
+6	0	apps/api/src/blueprints/blueprints.controller.ts
+2	0	apps/api/src/blueprints/blueprints.module.ts
+130	0	apps/api/src/blueprints/blueprints.service.spec.ts
+34	1	apps/api/src/blueprints/blueprints.service.ts
+41	0	apps/api/src/common/interceptors/logging.interceptor.ts
+
+commit c02f02470af69b1fbd340b95200fd356f7a698bc
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:45:23 2026 +0700
+
+    feat: add verify API key functionality; implement verification logic in ApiKeysService and corresponding controller method
+
+:100644 100644 d852eac 9ec23bf M	apps/api/src/api-keys/api-keys.controller.ts
+:100644 100644 d0f0fb4 ac98d5a M	apps/api/src/api-keys/api-keys.module.ts
+:000000 100644 0000000 0855f67 A	apps/api/src/api-keys/api-keys.service.spec.ts
+:100644 100644 3db3e1d 6a8f25f M	apps/api/src/api-keys/api-keys.service.ts
+:100644 100644 9165b76 4f3f2d0 M	apps/api/src/app.module.ts
+5	0	apps/api/src/api-keys/api-keys.controller.ts
+2	1	apps/api/src/api-keys/api-keys.module.ts
+73	0	apps/api/src/api-keys/api-keys.service.spec.ts
+13	2	apps/api/src/api-keys/api-keys.service.ts
+7	0	apps/api/src/app.module.ts
+
+commit aaddb0f3adf25e58e947dd2be4b213abcc2a767c
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 16:45:05 2026 +0700
+
+    feat: update settings.local.json to include additional Bash commands for API build and TypeScript compilation
+
+:100644 100644 87a6bbb 91e38e8 M	.claude/settings.local.json
+4	1	.claude/settings.local.json
+
+commit 39678bcf232a64ec4291e4674837e50406eab751
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 15:32:23 2026 +0700
+
+    feat: implement trade logs functionality; add trade logs retrieval in subscriptions service and controller; enhance heartbeat service with trade logging; create trading engine tests for PnL calculations
+
+:000000 100644 0000000 7e5d6fd A	apps/api/src/heartbeat/heartbeat.service.spec.ts
+:100644 100644 78118c2 c8e135d M	apps/api/src/heartbeat/heartbeat.service.ts
+:100644 100644 d6d1104 35fb3d3 M	apps/api/src/subscriptions/subscriptions.controller.ts
+:100644 100644 f0ee9e7 c93ce05 M	apps/api/src/subscriptions/subscriptions.module.ts
+:100644 100644 30980a0 9750134 M	apps/api/src/subscriptions/subscriptions.service.ts
+:100644 100644 dfd9f62 261ce9a M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 f4dbf5a c10f781 M	apps/api/src/trading/trading.engine.spec.ts
+:000000 100644 0000000 b0743e7 A	apps/web/src/lib/api-client/trade-logs.client.ts
+273	0	apps/api/src/heartbeat/heartbeat.service.spec.ts
+19	52	apps/api/src/heartbeat/heartbeat.service.ts
+5	0	apps/api/src/subscriptions/subscriptions.controller.ts
+2	1	apps/api/src/subscriptions/subscriptions.module.ts
+10	0	apps/api/src/subscriptions/subscriptions.service.ts
+22	12	apps/api/src/trading/broker/alpaca.adapter.ts
+37	1	apps/api/src/trading/trading.engine.spec.ts
+7	0	apps/web/src/lib/api-client/trade-logs.client.ts
+
+commit e1986a5f7fdf0ea3f4919dadcdda9d87449c5f2b
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Apr 10 15:03:13 2026 +0700
+
+    feat: add CLAUDE.md for project guidance and setup instructions; create settings.local.json for permissions configuration; update package.json files for Jest testing environment
+
+:000000 100644 0000000 87a6bbb A	.claude/settings.local.json
+:000000 100644 0000000 585eaf5 A	CLAUDE.md
+:100644 100644 5b2235c 6b7bedb M	apps/api/package.json
+:100644 100644 759533a 0751c47 M	apps/web/package.json
+12	0	.claude/settings.local.json
+173	0	CLAUDE.md
+1	1	apps/api/package.json
+20	0	apps/web/package.json
+
+commit 0f4109d4c85e31a82d9f50936e9761d320babde3
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Thu Apr 2 16:20:56 2026 +0700
+
+    feat: add InteractiveMarketChart component for market data visualization
+    
+    - Implemented InteractiveMarketChart to display market bars with line and candle modes.
+    - Added RSI calculation and rendering options.
+    - Enhanced BlueprintCard to include execution mode for trading strategies.
+    - Created SessionProvider for managing user session state and authentication.
+    - Updated NavBar to include a link to Market Data.
+    - Introduced market data client for fetching market bars.
+    - Added new schemas for market data types and updated existing schemas for blueprints and subscriptions.
+
+:100644 100644 8456f57 0a7650e M	apps/api/prisma/seed.ts
+:100644 100644 18eeab1 9165b76 M	apps/api/src/app.module.ts
+:100644 100644 80f580b d16c022 M	apps/api/src/heartbeat/heartbeat.service.ts
+:000000 100644 0000000 4939f05 A	apps/api/src/market-data/market-data.controller.ts
+:000000 100644 0000000 c5992fd A	apps/api/src/market-data/market-data.module.ts
+:000000 100644 0000000 8c2ce20 A	apps/api/src/market-data/market-data.service.ts
+:100644 100644 e46f8c0 14cf200 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 b833090 de99895 M	apps/web/src/app/(dashboard)/api-keys/page.tsx
+:000000 100644 0000000 ee73179 A	apps/web/src/app/(dashboard)/market-data/page.tsx
+:100644 100644 adc72f7 34ca4c5 M	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+:100644 100644 8d81c75 a79fa42 M	apps/web/src/app/(dashboard)/marketplace/page.tsx
+:100644 100644 8a9693e 40fe49c M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:000000 100644 0000000 20fe154 A	apps/web/src/components/market/InteractiveMarketChart.tsx
+:100644 100644 50dd2fa c9ca49d M	apps/web/src/components/marketplace/BlueprintCard.tsx
+:000000 100644 0000000 1052ec3 A	apps/web/src/components/providers/SessionProvider.tsx
+:100644 100644 a15417d 9fadec6 M	apps/web/src/components/ui/NavBar.tsx
+:100644 100644 712e341 6a9cd7e M	apps/web/src/lib/api-client/base.ts
+:000000 100644 0000000 b5ddf42 A	apps/web/src/lib/api-client/market-data.client.ts
+:100644 100644 b964c89 200778e M	packages/types/src/index.ts
+:100644 100644 855c5fc a0be02c M	packages/types/src/interfaces/IBrokerAdapter.ts
+:100644 100644 2014b50 0426823 M	packages/types/src/interfaces/index.ts
+:100644 100644 274a8be ff7255e M	packages/types/src/schemas/blueprint.schema.ts
+:000000 100644 0000000 f5551bd A	packages/types/src/schemas/market-data.schema.ts
+:100644 100644 cecc04b b61381b M	packages/types/src/schemas/subscription.schema.ts
+87	7	apps/api/prisma/seed.ts
+2	0	apps/api/src/app.module.ts
+161	15	apps/api/src/heartbeat/heartbeat.service.ts
+18	0	apps/api/src/market-data/market-data.controller.ts
+11	0	apps/api/src/market-data/market-data.module.ts
+11	0	apps/api/src/market-data/market-data.service.ts
+347	22	apps/api/src/trading/broker/alpaca.adapter.ts
+3	2	apps/web/src/app/(dashboard)/api-keys/page.tsx
+285	0	apps/web/src/app/(dashboard)/market-data/page.tsx
+4	0	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+13	4	apps/web/src/app/(dashboard)/marketplace/page.tsx
+646	30	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+275	0	apps/web/src/components/market/InteractiveMarketChart.tsx
+7	0	apps/web/src/components/marketplace/BlueprintCard.tsx
+83	0	apps/web/src/components/providers/SessionProvider.tsx
+4	1	apps/web/src/components/ui/NavBar.tsx
+1	0	apps/web/src/lib/api-client/base.ts
+19	0	apps/web/src/lib/api-client/market-data.client.ts
+1	0	packages/types/src/index.ts
+7	0	packages/types/src/interfaces/IBrokerAdapter.ts
+2	0	packages/types/src/interfaces/index.ts
+8	0	packages/types/src/schemas/blueprint.schema.ts
+26	0	packages/types/src/schemas/market-data.schema.ts
+1	1	packages/types/src/schemas/subscription.schema.ts
+
+commit 4a3919ff9e8e0fcbfdbd069ebff2e86c281b99e8
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:42:10 2026 +0700
+
+    feat(auth session provider): a centralized auth provider
+
+:100644 100644 73601b2 3616028 M	apps/web/src/app/(auth)/auth/login/page.tsx
+:100644 100644 a02f886 e4dd66a M	apps/web/src/app/(auth)/auth/register/page.tsx
+:100644 100644 e5cded0 eb775e1 M	apps/web/src/app/layout.tsx
+:100644 100644 96e5204 6dcd79f M	apps/web/src/components/marketplace/SubscribeButton.tsx
+:100644 100644 6ce5d2a a15417d M	apps/web/src/components/ui/NavBar.tsx
+:100644 100644 7823d62 dc35d72 M	docs/SRS-implementation-status.md
+3	1	apps/web/src/app/(auth)/auth/login/page.tsx
+3	1	apps/web/src/app/(auth)/auth/register/page.tsx
+5	2	apps/web/src/app/layout.tsx
+15	16	apps/web/src/components/marketplace/SubscribeButton.tsx
+4	45	apps/web/src/components/ui/NavBar.tsx
+11	8	docs/SRS-implementation-status.md
+
+commit 6e33e3ad7e4c8482fad4195901d79256808665ad
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:35:07 2026 +0700
+
+    fix(local token): remove hardcoded getting tokens from storage across multiple files.
+
+:100644 100644 8ea3a76 ffe4df8 M	apps/api/src/auth/auth.controller.ts
+:100644 100644 781e2e3 c9e99d1 M	apps/web/src/app/(dashboard)/admin/page.tsx
+:100644 100644 3642ace b833090 M	apps/web/src/app/(dashboard)/api-keys/page.tsx
+:100644 100644 804acda 8a9693e M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:100644 100644 1f16d57 1e6a532 M	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+:100644 100644 8b0b817 96e5204 M	apps/web/src/components/marketplace/SubscribeButton.tsx
+:100644 100644 937407a 6ce5d2a M	apps/web/src/components/ui/NavBar.tsx
+:100644 100644 e05b9dd d75dbe9 M	apps/web/src/lib/api-client/api-keys.client.ts
+:100644 100644 bc1cc68 490f15a M	apps/web/src/lib/api-client/auth.client.ts
+:100644 100644 0706411 95b72e8 M	apps/web/src/lib/api-client/blueprints.client.ts
+:100644 100644 94e626f 47652c9 M	apps/web/src/lib/api-client/subscriptions.client.ts
+:100644 100644 faa00c5 7823d62 M	docs/SRS-implementation-status.md
+:100644 100644 9db6c77 c4279c9 M	packages/types/src/schemas/auth.schema.ts
+17	1	apps/api/src/auth/auth.controller.ts
+2	4	apps/web/src/app/(dashboard)/admin/page.tsx
+11	15	apps/web/src/app/(dashboard)/api-keys/page.tsx
+9	14	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+3	6	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+1	8	apps/web/src/components/marketplace/SubscribeButton.tsx
+25	12	apps/web/src/components/ui/NavBar.tsx
+4	4	apps/web/src/lib/api-client/api-keys.client.ts
+9	1	apps/web/src/lib/api-client/auth.client.ts
+12	12	apps/web/src/lib/api-client/blueprints.client.ts
+11	11	apps/web/src/lib/api-client/subscriptions.client.ts
+7	8	docs/SRS-implementation-status.md
+9	0	packages/types/src/schemas/auth.schema.ts
+
+commit 4f0cf75292b62e476e7f070a2fa92f3388b7e84f
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Wed Apr 8 23:32:00 2026 +0700
+
+    feat(docs): add comprehensive risk assessment document for VanTrade
+
+:000000 100644 0000000 0d8bdd9 A	docs/RISK_ASSESSMENT.md
+236	0	docs/RISK_ASSESSMENT.md
+
+commit 6ce1b8123273e715f779919c9d7abfe553398406
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Fri Mar 27 11:14:13 2026 +0700
+
+    feat(trading): implement trade log persistence and update broker interface for user credentials
+    feat(auth): set default role to TESTER during user registration
+    feat(heartbeat): refactor subscription processing to utilize trade logs and historical prices
+    feat(trade-logs): add TradeLogs module and repository for managing trade execution records
+
+:100644 100644 6a3064e 6ad862f M	AGENTS.md
+:100644 100644 7a908d3 bc2be3d M	apps/api/src/auth/auth.service.ts
+:100644 100644 93b33b0 6ba11fe M	apps/api/src/heartbeat/heartbeat.module.ts
+:100644 100644 80f580b 06c905e M	apps/api/src/heartbeat/heartbeat.service.ts
+:000000 100644 0000000 09de26f A	apps/api/src/trade-logs/trade-logs.module.ts
+:000000 100644 0000000 0247b3c A	apps/api/src/trade-logs/trade-logs.repository.ts
+:100644 100644 e46f8c0 008e50b M	apps/api/src/trading/broker/alpaca.adapter.ts
+:000000 100644 0000000 0cf0094 A	docs/ARCHITECTURE.md
+:100644 100644 855c5fc d284a52 M	packages/types/src/interfaces/IBrokerAdapter.ts
+:100644 100644 9db6c77 913334b M	packages/types/src/schemas/auth.schema.ts
+43	22	AGENTS.md
+1	1	apps/api/src/auth/auth.service.ts
+2	1	apps/api/src/heartbeat/heartbeat.module.ts
+35	54	apps/api/src/heartbeat/heartbeat.service.ts
+8	0	apps/api/src/trade-logs/trade-logs.module.ts
+21	0	apps/api/src/trade-logs/trade-logs.repository.ts
+25	24	apps/api/src/trading/broker/alpaca.adapter.ts
+178	0	docs/ARCHITECTURE.md
+12	2	packages/types/src/interfaces/IBrokerAdapter.ts
+0	2	packages/types/src/schemas/auth.schema.ts
+
+commit 8b733ff22210f8912525d0248768069cdbd8fd7e
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:27:31 2026 +0700
+
+    feat(auth jwt): Auth now accepts JWT from header instead of fetching from local storage
+
+:100644 100644 ba66b18 8ea3a76 M	apps/api/src/auth/auth.controller.ts
+:100644 100644 b9e8844 d85c19c M	apps/api/src/auth/jwt.strategy.ts
+:100644 100644 ba5f3da 73601b2 M	apps/web/src/app/(auth)/auth/login/page.tsx
+:100644 100644 2e0dc93 a02f886 M	apps/web/src/app/(auth)/auth/register/page.tsx
+:100644 100644 411e0f4 937407a M	apps/web/src/components/ui/NavBar.tsx
+:100644 100644 7c1d958 bc1cc68 M	apps/web/src/lib/api-client/auth.client.ts
+:100644 100644 bf1b748 712e341 M	apps/web/src/lib/api-client/base.ts
+:100644 100644 3807c86 faa00c5 M	docs/SRS-implementation-status.md
+42	4	apps/api/src/auth/auth.controller.ts
+18	1	apps/api/src/auth/jwt.strategy.ts
+0	1	apps/web/src/app/(auth)/auth/login/page.tsx
+0	1	apps/web/src/app/(auth)/auth/register/page.tsx
+8	2	apps/web/src/components/ui/NavBar.tsx
+6	0	apps/web/src/lib/api-client/auth.client.ts
+1	0	apps/web/src/lib/api-client/base.ts
+9	10	docs/SRS-implementation-status.md
+
+commit 87868aacb9cde88db5e8da107eeb1b758888d9f4
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:19:41 2026 +0700
+
+    feat: implement SRS MVP dashboards and client response validation
+
+:100644 100644 8308c35 80f580b M	apps/api/src/heartbeat/heartbeat.service.ts
+:100644 100644 76d78d4 781e2e3 M	apps/web/src/app/(dashboard)/admin/page.tsx
+:000000 100644 0000000 3642ace A	apps/web/src/app/(dashboard)/api-keys/page.tsx
+:000000 100644 0000000 804acda A	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:100644 100644 6ae8cd1 1f16d57 M	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+:100644 100644 9130411 411e0f4 M	apps/web/src/components/ui/NavBar.tsx
+:000000 100644 0000000 e05b9dd A	apps/web/src/lib/api-client/api-keys.client.ts
+:100644 100644 f39f46a 7c1d958 M	apps/web/src/lib/api-client/auth.client.ts
+:100644 100644 0f6ac51 bf1b748 M	apps/web/src/lib/api-client/base.ts
+:100644 100644 eedde99 0706411 M	apps/web/src/lib/api-client/blueprints.client.ts
+:100644 100644 ae2ffdb 94e626f M	apps/web/src/lib/api-client/subscriptions.client.ts
+:000000 100644 0000000 3807c86 A	docs/SRS-implementation-status.md
+:100644 100644 36db99e 26aebac M	packages/types/src/schemas/api-key.schema.ts
+:100644 100644 78fea14 274a8be M	packages/types/src/schemas/blueprint.schema.ts
+:100644 100644 f27d883 cecc04b M	packages/types/src/schemas/subscription.schema.ts
+:100644 100644 c0d081a 395a0ac M	packages/types/src/schemas/trade-log.schema.ts
+40	12	apps/api/src/heartbeat/heartbeat.service.ts
+2	1	apps/web/src/app/(dashboard)/admin/page.tsx
+156	0	apps/web/src/app/(dashboard)/api-keys/page.tsx
+284	0	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+32	8	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+9	1	apps/web/src/components/ui/NavBar.tsx
+15	0	apps/web/src/lib/api-client/api-keys.client.ts
+3	3	apps/web/src/lib/api-client/auth.client.ts
+20	9	apps/web/src/lib/api-client/base.ts
+15	7	apps/web/src/lib/api-client/blueprints.client.ts
+8	4	apps/web/src/lib/api-client/subscriptions.client.ts
+51	0	docs/SRS-implementation-status.md
+8	0	packages/types/src/schemas/api-key.schema.ts
+21	0	packages/types/src/schemas/blueprint.schema.ts
+16	0	packages/types/src/schemas/subscription.schema.ts
+7	4	packages/types/src/schemas/trade-log.schema.ts
+
+commit 0290c9dffc02a1096e9631c880b8b3db062d13d1
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:05:05 2026 +0700
+
+    doc(SRS): main srs document to refer to
+
+:000000 100644 0000000 e5989e4 A	docs/SRS.md
+332	0	docs/SRS.md
+
+commit 996360e89fdf81b6291589e07950052c337dfbb5
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:04:37 2026 +0700
+
+    feat(navbar): enhance navigation with user role handling and subscription button
+
+:100644 100644 95a8fa6 adc72f7 M	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+:100644 100644 c291d5b e5cded0 M	apps/web/src/app/layout.tsx
+:000000 100644 0000000 8b0b817 A	apps/web/src/components/marketplace/SubscribeButton.tsx
+:100644 100644 421d7c5 9130411 M	apps/web/src/components/ui/NavBar.tsx
+2	6	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+5	1	apps/web/src/app/layout.tsx
+76	0	apps/web/src/components/marketplace/SubscribeButton.tsx
+69	12	apps/web/src/components/ui/NavBar.tsx
+
+commit ea15b4a7330226f4df5d3cb7e6b5e0860f03ed2a
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:04:27 2026 +0700
+
+    refactor(heartbeat): improve parameter validation and type safety in processSub method
+
+:100644 100644 2e22e38 8308c35 M	apps/api/src/heartbeat/heartbeat.service.ts
+10	12	apps/api/src/heartbeat/heartbeat.service.ts
+
+commit cfcb1bda7efb83669e14f96b1c1301e4e17b650a
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:04:02 2026 +0700
+
+    chore(tsconfig): format tsconfig.json for improved readability
+
+:100644 100644 08dda72 37cd81b M	apps/web/tsconfig.json
+29	7	apps/web/tsconfig.json
+
+commit a1bd6cb285dabe57ad8793fa5985f6d3b8c0f4b2
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Sat Mar 14 16:03:39 2026 +0700
+
+    fix(prisma setup): fix prisma config conflicts
+
+:000000 100644 0000000 c2a30fb A	apps/api/prisma/migrations/20260314084618_init/migration.sql
+:000000 100644 0000000 fbffa92 A	apps/api/prisma/migrations/migration_lock.toml
+:100644 100644 8c51a3a 8456f57 M	apps/api/prisma/seed.ts
+:000000 100644 0000000 4f11a03 A	apps/web/next-env.d.ts
+:100644 100644 b8b93b1 12a703d M	apps/web/postcss.config.js
+88	0	apps/api/prisma/migrations/20260314084618_init/migration.sql
+3	0	apps/api/prisma/migrations/migration_lock.toml
+1	1	apps/api/prisma/seed.ts
+5	0	apps/web/next-env.d.ts
+5	5	apps/web/postcss.config.js
+
+commit 63c91fa8828c4b76129a30599cb85706ca7f3166
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Sat Mar 14 07:20:22 2026 +0700
+
+    feat(web): scaffold nextjs dashboard and typed api client
+
+:000000 100644 0000000 2a3fa75 A	apps/web/.env.local.example
+:000000 100644 0000000 f76a9fd A	apps/web/next.config.js
+:000000 100644 0000000 759533a A	apps/web/package.json
+:000000 100644 0000000 b8b93b1 A	apps/web/postcss.config.js
+:000000 100644 0000000 ba5f3da A	apps/web/src/app/(auth)/auth/login/page.tsx
+:000000 100644 0000000 2e0dc93 A	apps/web/src/app/(auth)/auth/register/page.tsx
+:000000 100644 0000000 76d78d4 A	apps/web/src/app/(dashboard)/admin/page.tsx
+:000000 100644 0000000 95a8fa6 A	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+:000000 100644 0000000 8d81c75 A	apps/web/src/app/(dashboard)/marketplace/page.tsx
+:000000 100644 0000000 6ae8cd1 A	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+:000000 100644 0000000 b5c61c9 A	apps/web/src/app/globals.css
+:000000 100644 0000000 c291d5b A	apps/web/src/app/layout.tsx
+:000000 100644 0000000 fba679d A	apps/web/src/app/page.tsx
+:000000 100644 0000000 50dd2fa A	apps/web/src/components/marketplace/BlueprintCard.tsx
+:000000 100644 0000000 421d7c5 A	apps/web/src/components/ui/NavBar.tsx
+:000000 100644 0000000 f39f46a A	apps/web/src/lib/api-client/auth.client.ts
+:000000 100644 0000000 0f6ac51 A	apps/web/src/lib/api-client/base.ts
+:000000 100644 0000000 eedde99 A	apps/web/src/lib/api-client/blueprints.client.ts
+:000000 100644 0000000 ae2ffdb A	apps/web/src/lib/api-client/subscriptions.client.ts
+:000000 100644 0000000 994ffee A	apps/web/tailwind.config.js
+:000000 100644 0000000 08dda72 A	apps/web/tsconfig.json
+4	0	apps/web/.env.local.example
+6	0	apps/web/next.config.js
+33	0	apps/web/package.json
+6	0	apps/web/postcss.config.js
+96	0	apps/web/src/app/(auth)/auth/login/page.tsx
+108	0	apps/web/src/app/(auth)/auth/register/page.tsx
+104	0	apps/web/src/app/(dashboard)/admin/page.tsx
+70	0	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+34	0	apps/web/src/app/(dashboard)/marketplace/page.tsx
+125	0	apps/web/src/app/(dashboard)/subscriptions/page.tsx
+3	0	apps/web/src/app/globals.css
+15	0	apps/web/src/app/layout.tsx
+27	0	apps/web/src/app/page.tsx
+46	0	apps/web/src/components/marketplace/BlueprintCard.tsx
+53	0	apps/web/src/components/ui/NavBar.tsx
+10	0	apps/web/src/lib/api-client/auth.client.ts
+58	0	apps/web/src/lib/api-client/base.ts
+25	0	apps/web/src/lib/api-client/blueprints.client.ts
+16	0	apps/web/src/lib/api-client/subscriptions.client.ts
+6	0	apps/web/tailwind.config.js
+20	0	apps/web/tsconfig.json
+
+commit 5d8438fbf3a36fd91d18f582c9bb900e7d2c0a94
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Sat Mar 14 07:20:18 2026 +0700
+
+    feat(api): scaffold nestjs backend with auth, trading, and heartbeat
+
+:000000 100644 0000000 5b2235c A	apps/api/package.json
+:000000 100644 0000000 75a8ed0 A	apps/api/prisma/schema.prisma
+:000000 100644 0000000 8c51a3a A	apps/api/prisma/seed.ts
+:000000 100644 0000000 d852eac A	apps/api/src/api-keys/api-keys.controller.ts
+:000000 100644 0000000 d0f0fb4 A	apps/api/src/api-keys/api-keys.module.ts
+:000000 100644 0000000 8d733f9 A	apps/api/src/api-keys/api-keys.repository.ts
+:000000 100644 0000000 3db3e1d A	apps/api/src/api-keys/api-keys.service.ts
+:000000 100644 0000000 18eeab1 A	apps/api/src/app.module.ts
+:000000 100644 0000000 ba66b18 A	apps/api/src/auth/auth.controller.ts
+:000000 100644 0000000 7cb3f69 A	apps/api/src/auth/auth.module.ts
+:000000 100644 0000000 a476d5f A	apps/api/src/auth/auth.repository.ts
+:000000 100644 0000000 7a908d3 A	apps/api/src/auth/auth.service.ts
+:000000 100644 0000000 2155290 A	apps/api/src/auth/jwt-auth.guard.ts
+:000000 100644 0000000 b9e8844 A	apps/api/src/auth/jwt.strategy.ts
+:000000 100644 0000000 248074e A	apps/api/src/auth/roles.decorator.ts
+:000000 100644 0000000 bdd426b A	apps/api/src/auth/roles.guard.ts
+:000000 100644 0000000 26254ac A	apps/api/src/blueprints/blueprints.controller.ts
+:000000 100644 0000000 052bcb6 A	apps/api/src/blueprints/blueprints.module.ts
+:000000 100644 0000000 7686fbd A	apps/api/src/blueprints/blueprints.repository.ts
+:000000 100644 0000000 5e0ba2a A	apps/api/src/blueprints/blueprints.service.ts
+:000000 100644 0000000 1600456 A	apps/api/src/common/pipes/zod-validation.pipe.ts
+:000000 100644 0000000 e94ae2c A	apps/api/src/encryption/encryption.module.ts
+:000000 100644 0000000 894aa38 A	apps/api/src/encryption/encryption.service.ts
+:000000 100644 0000000 93b33b0 A	apps/api/src/heartbeat/heartbeat.module.ts
+:000000 100644 0000000 2e22e38 A	apps/api/src/heartbeat/heartbeat.service.ts
+:000000 100644 0000000 35b34c6 A	apps/api/src/main.ts
+:000000 100644 0000000 7207426 A	apps/api/src/prisma/prisma.module.ts
+:000000 100644 0000000 359f950 A	apps/api/src/prisma/prisma.service.ts
+:000000 100644 0000000 d6d1104 A	apps/api/src/subscriptions/subscriptions.controller.ts
+:000000 100644 0000000 f0ee9e7 A	apps/api/src/subscriptions/subscriptions.module.ts
+:000000 100644 0000000 9d92e2e A	apps/api/src/subscriptions/subscriptions.repository.ts
+:000000 100644 0000000 30980a0 A	apps/api/src/subscriptions/subscriptions.service.ts
+:000000 100644 0000000 49a6793 A	apps/api/src/trading/broker/IBrokerAdapter.ts
+:000000 100644 0000000 e46f8c0 A	apps/api/src/trading/broker/alpaca.adapter.ts
+:000000 100644 0000000 f4dbf5a A	apps/api/src/trading/trading.engine.spec.ts
+:000000 100644 0000000 0d6aa3b A	apps/api/src/trading/trading.engine.ts
+:000000 100644 0000000 bede1af A	apps/api/src/trading/trading.module.ts
+:000000 100644 0000000 2dbeed6 A	apps/api/tsconfig.json
+:000000 100644 0000000 75a8ed0 A	prisma/schema.prisma
+:000000 100644 0000000 8c51a3a A	prisma/seed.ts
+63	0	apps/api/package.json
+78	0	apps/api/prisma/schema.prisma
+80	0	apps/api/prisma/seed.ts
+40	0	apps/api/src/api-keys/api-keys.controller.ts
+12	0	apps/api/src/api-keys/api-keys.module.ts
+23	0	apps/api/src/api-keys/api-keys.repository.ts
+32	0	apps/api/src/api-keys/api-keys.service.ts
+25	0	apps/api/src/app.module.ts
+30	0	apps/api/src/auth/auth.controller.ts
+21	0	apps/api/src/auth/auth.module.ts
+20	0	apps/api/src/auth/auth.repository.ts
+54	0	apps/api/src/auth/auth.service.ts
+5	0	apps/api/src/auth/jwt-auth.guard.ts
+19	0	apps/api/src/auth/jwt.strategy.ts
+4	0	apps/api/src/auth/roles.decorator.ts
+30	0	apps/api/src/auth/roles.guard.ts
+98	0	apps/api/src/blueprints/blueprints.controller.ts
+11	0	apps/api/src/blueprints/blueprints.module.ts
+57	0	apps/api/src/blueprints/blueprints.repository.ts
+64	0	apps/api/src/blueprints/blueprints.service.ts
+14	0	apps/api/src/common/pipes/zod-validation.pipe.ts
+8	0	apps/api/src/encryption/encryption.module.ts
+47	0	apps/api/src/encryption/encryption.service.ts
+11	0	apps/api/src/heartbeat/heartbeat.module.ts
+96	0	apps/api/src/heartbeat/heartbeat.service.ts
+18	0	apps/api/src/main.ts
+9	0	apps/api/src/prisma/prisma.module.ts
+9	0	apps/api/src/prisma/prisma.service.ts
+59	0	apps/api/src/subscriptions/subscriptions.controller.ts
+13	0	apps/api/src/subscriptions/subscriptions.module.ts
+57	0	apps/api/src/subscriptions/subscriptions.repository.ts
+48	0	apps/api/src/subscriptions/subscriptions.service.ts
+1	0	apps/api/src/trading/broker/IBrokerAdapter.ts
+90	0	apps/api/src/trading/broker/alpaca.adapter.ts
+64	0	apps/api/src/trading/trading.engine.spec.ts
+107	0	apps/api/src/trading/trading.engine.ts
+13	0	apps/api/src/trading/trading.module.ts
+19	0	apps/api/tsconfig.json
+78	0	prisma/schema.prisma
+80	0	prisma/seed.ts
+
+commit f04b1bdf56b18c12b7738fc2c1796e11e6e882f8
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Sat Mar 14 07:20:12 2026 +0700
+
+    feat(types): add shared contracts and zod schemas
+
+:000000 100644 0000000 3aff3ef A	packages/types/package.json
+:000000 100644 0000000 7063a9e A	packages/types/src/enums.ts
+:000000 100644 0000000 b964c89 A	packages/types/src/index.ts
+:000000 100644 0000000 855c5fc A	packages/types/src/interfaces/IBrokerAdapter.ts
+:000000 100644 0000000 2014b50 A	packages/types/src/interfaces/index.ts
+:000000 100644 0000000 36db99e A	packages/types/src/schemas/api-key.schema.ts
+:000000 100644 0000000 9db6c77 A	packages/types/src/schemas/auth.schema.ts
+:000000 100644 0000000 78fea14 A	packages/types/src/schemas/blueprint.schema.ts
+:000000 100644 0000000 f27d883 A	packages/types/src/schemas/subscription.schema.ts
+:000000 100644 0000000 c0d081a A	packages/types/src/schemas/trade-log.schema.ts
+:000000 100644 0000000 142e12c A	packages/types/tsconfig.json
+25	0	packages/types/package.json
+24	0	packages/types/src/enums.ts
+13	0	packages/types/src/index.ts
+31	0	packages/types/src/interfaces/IBrokerAdapter.ts
+56	0	packages/types/src/interfaces/index.ts
+8	0	packages/types/src/schemas/api-key.schema.ts
+26	0	packages/types/src/schemas/auth.schema.ts
+27	0	packages/types/src/schemas/blueprint.schema.ts
+12	0	packages/types/src/schemas/subscription.schema.ts
+15	0	packages/types/src/schemas/trade-log.schema.ts
+11	0	packages/types/tsconfig.json
+
+commit 9c847a0de46b6cc49bd3752f4d287037878b60f7
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Sat Mar 14 07:20:09 2026 +0700
+
+    chore(repo): initialize pnpm monorepo tooling
+
+:000000 100644 0000000 0007a12 A	package.json
+:000000 100644 0000000 3ff5faa A	pnpm-workspace.yaml
+:000000 100644 0000000 0ab5ba1 A	tsconfig.base.json
+:000000 100644 0000000 880a5ba A	turbo.json
+21	0	package.json
+3	0	pnpm-workspace.yaml
+20	0	tsconfig.base.json
+25	0	turbo.json
+
+commit fb3242ad2f83d7e5dc5b720732df93e11486353a
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Sat Mar 14 02:59:48 2026 +0700
+
+    doc: project documentation, README.md and AGENTS.md
+
+:000000 100644 0000000 f021dba A	.github/copilot-instructions.md
+:000000 100644 0000000 6a3064e A	AGENTS.md
+:100644 100644 9271b5f dcef9da M	README.md
+:000000 100644 0000000 33c6691 A	apps/api/.env.example
+:000000 100644 0000000 2e881f1 A	docs/Software Arch Project VanTrade.txt
+:000000 100644 0000000 7dc2485 A	docs/Software_Arch_Project_VanTrade.pdf
+163	0	.github/copilot-instructions.md
+498	0	AGENTS.md
+124	1	README.md
+22	0	apps/api/.env.example
+90	0	docs/Software Arch Project VanTrade.txt
+-	-	docs/Software_Arch_Project_VanTrade.pdf
+
+commit 2b7c3f63fcad19df4d0b5e7969e431311d2c3d57
+Author: Thanawat Tantijaroensin <taroofsatoeimo@gmail.com>
+Date:   Sat Mar 14 02:58:24 2026 +0700
+
+    chore: added .gitignore
+
+:000000 100644 0000000 322cbfc A	.gitignore
+67	0	.gitignore
+
+commit 0f44cfd3669e86a1e6af2671b7e13c49aa9b3245
+Author: Thanawat Tantijaroensin <115664618+tarothanawat@users.noreply.github.com>
+Date:   Fri Mar 6 23:04:40 2026 +0700
+
+    Initial commit
+
+:000000 100644 0000000 9271b5f A	README.md
+1	0	README.md

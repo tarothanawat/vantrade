@@ -9,7 +9,8 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "postinstall": "node -e \"try{require('fs').copyFileSync('node_modules/codecharta-analysis/binScripts/local/ccsh.cmd','node_modules/.bin/ccsh.CMD')}catch(e){}\"",
-    "codecharta:analyze": "echo '' | ccsh rawtextparser -nc -e \"node_modules,.next,dist,.turbo,coverage\" -o rawtext.cc.json apps packages && echo '' | ccsh merge -nc rawtext.cc.json gitlog.cc.json -o vantrade.cc.json",
+    "codecharta:gitlog": "git log --numstat --topo-order --raw --encoding=utf-8 --diff-filter=ACDMRTUXB > gitlog.txt && git ls-files > repo-files.txt && echo '' | ccsh gitlogparser log-scan -nc --git-log gitlog.txt --repo-files repo-files.txt -o gitlog.cc.json",
+    "codecharta:analyze": "pnpm codecharta:gitlog && echo '' | ccsh rawtextparser -nc -e \"node_modules,.next,dist,.turbo,coverage,gitlog.txt,repo-files.txt,rawtext.cc.json,gitlog.cc.json,vantrade.cc.json\" -o rawtext.cc.json . && echo '' | ccsh merge -nc rawtext.cc.json gitlog.cc.json -o vantrade.cc.json",
     "codecharta:open": "codecharta-visualization",
     "codecharta": "pnpm codecharta:analyze && pnpm codecharta:open"
   },
