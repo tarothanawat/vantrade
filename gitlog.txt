@@ -1,3 +1,74 @@
+commit 9d563921719b35c22d81cb4f0f34de6bf83739a3
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 22:00:21 2026 +0700
+
+    feat: add optional symbolOverride field to Subscription interface
+
+:000000 100644 0000000 ad0b42c A	apps/api/prisma/migrations/20260415144931_last_edit/migration.sql
+:100644 100644 ef721f4 01640e0 M	packages/types/src/interfaces/index.ts
+2	0	apps/api/prisma/migrations/20260415144931_last_edit/migration.sql
+2	0	packages/types/src/interfaces/index.ts
+
+commit a88a1ad97d286417e640ece23b9dabcf7619b46a
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:38:24 2026 +0700
+
+    doc(readme): edit the readme.md to be ready for submission with screenshots and diagrams
+
+:100644 100644 6c7c4c2 a39887f M	README.md
+:000000 100644 0000000 bfb22e3 A	docs/diagrams/credential_security_flow.png
+:000000 100644 0000000 fd22193 A	docs/diagrams/database_schema.png
+:000000 100644 0000000 996bb84 A	docs/diagrams/heartbeat_execution_flow.png
+:000000 100644 0000000 01ebf34 A	docs/diagrams/hexagonal_architecture.png
+:000000 100644 0000000 df37c59 A	docs/diagrams/request_pipeline.png
+:000000 100644 0000000 2760fa6 A	docs/diagrams/role_permission_map.png
+:000000 100644 0000000 871da2b A	docs/diagrams/system_overview.png
+:000000 100644 0000000 ab68d13 A	docs/screenshots/backtest.png
+:000000 100644 0000000 d305c7d A	docs/screenshots/dashboard.png
+:000000 100644 0000000 3745cc9 A	docs/screenshots/dashboard2.png
+:000000 100644 0000000 b1ff56a A	docs/screenshots/login.png
+:000000 100644 0000000 1817a9b A	docs/screenshots/marketplace.png
+:100644 100644 f801d83 e84ddef M	gitlog.cc.json
+:100644 100644 58656d4 5c756c4 M	gitlog.txt
+:100644 100644 8863dc2 1f31679 M	package.json
+:100644 100644 549f33d cf19228 M	rawtext.cc.json
+:100644 100644 4f76272 d66a7ad M	repo-files.txt
+:100644 100644 93c7c45 fc1c9aa M	vantrade.cc.json
+50	24	README.md
+-	-	docs/diagrams/credential_security_flow.png
+-	-	docs/diagrams/database_schema.png
+-	-	docs/diagrams/heartbeat_execution_flow.png
+-	-	docs/diagrams/hexagonal_architecture.png
+-	-	docs/diagrams/request_pipeline.png
+-	-	docs/diagrams/role_permission_map.png
+-	-	docs/diagrams/system_overview.png
+-	-	docs/screenshots/backtest.png
+-	-	docs/screenshots/dashboard.png
+-	-	docs/screenshots/dashboard2.png
+-	-	docs/screenshots/login.png
+-	-	docs/screenshots/marketplace.png
+1	1	gitlog.cc.json
+114	0	gitlog.txt
+3	2	package.json
+1	1	rawtext.cc.json
+3	0	repo-files.txt
+1	1	vantrade.cc.json
+
+commit ba47c31a6402e20c2c9a06b64775e7d137651200
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:36:46 2026 +0700
+
+    feat: enhance MarketDataService error handling, add TradeLogsRepository method, and implement heartbeat trigger in useAdmin hook
+
+:100644 100644 8c2ce20 eab3cfa M	apps/api/src/market-data/market-data.service.ts
+:100644 100644 1781f97 436bfc7 M	apps/api/src/trade-logs/trade-logs.repository.ts
+:100644 100644 2917047 7fdf9f7 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 011ef0d 7dc2d39 M	apps/web/src/hooks/use-admin.ts
+4	2	apps/api/src/market-data/market-data.service.ts
+7	0	apps/api/src/trade-logs/trade-logs.repository.ts
+44	8	apps/api/src/trading/broker/alpaca.adapter.ts
+17	1	apps/web/src/hooks/use-admin.ts
+
 commit 065bab9cdb026a98526829e92fc436c61f763f86
 Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
 Date:   Wed Apr 15 21:14:46 2026 +0700

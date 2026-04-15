@@ -8,6 +8,7 @@ apps/api/.env.example
 apps/api/package.json
 apps/api/prisma/migrations/20260314084618_init/migration.sql
 apps/api/prisma/migrations/20260413073322_added_two_api_keyd/migration.sql
+apps/api/prisma/migrations/20260415144931_last_edit/migration.sql
 apps/api/prisma/migrations/migration_lock.toml
 apps/api/prisma/schema.prisma
 apps/api/prisma/seed.ts
@@ -123,6 +124,18 @@ docs/SRS-implementation-status.md
 docs/SRS.md
 docs/Software Arch Project VanTrade.txt
 docs/Software_Arch_Project_VanTrade.pdf
+docs/diagrams/credential_security_flow.png
+docs/diagrams/database_schema.png
+docs/diagrams/heartbeat_execution_flow.png
+docs/diagrams/hexagonal_architecture.png
+docs/diagrams/request_pipeline.png
+docs/diagrams/role_permission_map.png
+docs/diagrams/system_overview.png
+docs/screenshots/backtest.png
+docs/screenshots/dashboard.png
+docs/screenshots/dashboard2.png
+docs/screenshots/login.png
+docs/screenshots/marketplace.png
 gitlog.cc.json
 gitlog.cc.json.gz
 gitlog.txt
