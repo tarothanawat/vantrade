@@ -34,32 +34,15 @@ Strategy **Providers** publish parameterized RSI-based Blueprints. **Testers** s
 
 > **Registration** always assigns `TESTER`. Role upgrades are performed by an Admin only — role is never accepted from the request body.
 
+![Role & Permission Map](docs/diagrams/role_permission_map.png)
+
 ---
 
 ## System Architecture Overview
 
 VanTrade enforces **Hexagonal Architecture (Ports & Adapters)** in the trading subsystem and the **Repository Pattern** for database access throughout.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    apps/web  (Next.js)                  │
-│   Pages → api-client/ fetch wrappers → NestJS REST API  │
-└─────────────────────────────────────────────────────────┘
-                           │ HTTP / JSON
-┌─────────────────────────────────────────────────────────┐
-│                    apps/api  (NestJS)                   │
-│                                                         │
-│  Controller → Service → Repository → PrismaService      │
-│                  │                                      │
-│           HeartbeatService  (cron, every 60s)           │
-│                  │                                      │
-│    Domain: trading.engine.ts (pure functions)           │
-│    Port:   IBrokerAdapter  (interface)                  │
-│    Adapter: AlpacaAdapter  (only Alpaca SDK importer)   │
-└─────────────────────────────────────────────────────────┘
-                           │
-                    PostgreSQL (Prisma)
-```
+![System Overview](docs/diagrams/system_overview.png)
 
 Key architectural patterns:
 
@@ -68,6 +51,22 @@ Key architectural patterns:
 - **Thin Controllers:** Controllers do exactly three things — validate with `ZodValidationPipe`, call one service method, return the result.
 - **Append-Only Trade Ledger:** `TradeLog` rows are never updated or deleted — immutable audit trail.
 - **AES-256-GCM Credential Encryption:** Broker API keys are encrypted at rest. Decrypted values are computed in-memory at order time only.
+
+### Hexagonal Architecture (Ports & Adapters)
+
+![Hexagonal Architecture](docs/diagrams/hexagonal_architecture.png)
+
+### Request Pipeline
+
+![Request Pipeline](docs/diagrams/request_pipeline.png)
+
+### Heartbeat Execution Flow
+
+![Heartbeat Execution Flow](docs/diagrams/heartbeat_execution_flow.png)
+
+### Credential Security Flow
+
+![Credential Security Flow](docs/diagrams/credential_security_flow.png)
 
 See [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) for a full architectural write-up.
 
@@ -200,6 +199,30 @@ pnpm --filter web test
 
 ---
 
+## CodeCharta (Code Quality Visualization)
+
+`codecharta-analysis` and `codecharta-visualization` are included as devDependencies — no global install required.
+
+```bash
+# Re-analyse source + merge with git history, then open the UI
+pnpm codecharta
+
+# Or run the steps individually:
+pnpm codecharta:analyze   # regenerates rawtext.cc.json and vantrade.cc.json
+pnpm codecharta:open      # launches the visualization UI
+```
+
+Then load `vantrade.cc.json` in the visualization app.
+
+To regenerate the git-history layer (only needed after significant commit history changes):
+```bash
+echo '' | ccsh gitlogparser repo-scan -nc -o gitlog.cc.json --repo-path .
+```
+
+> **Windows note:** the `echo '' |` prefix is required when running `ccsh` from Git Bash — it satisfies a stdin check in the Java runtime that otherwise throws on Windows console handles.
+
+---
+
 ## Key API Endpoints
 
 | Method | Path | Role | Description |
@@ -220,6 +243,12 @@ pnpm --filter web test
 
 ---
 
+## Database Schema
+
+![Database Schema](docs/diagrams/database_schema.png)
+
+---
+
 ## Screenshots
 
 ### Login
@@ -231,11 +260,8 @@ pnpm --filter web test
 ### Blueprint Detail & Backtest
 ![Backtest](docs/screenshots/backtest.png)
 
-### Tester Dashboard — Active Subscriptions
+### Tester Dashboard — Active Subscriptions & Trade logs
 ![Dashboard](docs/screenshots/dashboard.png)
-
-### Trade Logs
-![Trade Logs](docs/screenshots/trade-logs.png)
 
 ### Admin — Blueprint Verification
 ![Admin](docs/screenshots/admin.png)

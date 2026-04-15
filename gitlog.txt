@@ -1,3 +1,117 @@
+commit 065bab9cdb026a98526829e92fc436c61f763f86
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:14:46 2026 +0700
+
+    feat: add manual heartbeat trigger to admin page
+    
+    - Implemented a manual heartbeat trigger section in the AdminPage component.
+    - Added functionality to trigger heartbeat and display last triggered time.
+    
+    feat: update SubscribeButton to accept default symbol
+    
+    - Modified SubscribeButton to accept a defaultSymbol prop.
+    - Enhanced symbol selection with a dropdown that includes the default symbol.
+    
+    feat: extend MyBlueprintsPage for ICT strategy
+    
+    - Added support for ICT strategy in MyBlueprintsPage.
+    - Introduced new form fields specific to ICT strategy.
+    - Implemented strategy type toggle between RSI and ICT.
+    
+    fix: update SubscriptionCard to display symbol override
+    
+    - Updated SubscriptionCard to show the symbol override if applicable.
+    - Changed total P&L to realized P&L and added unrealized P&L display.
+    
+    feat: enhance trade logs with pagination and status reasons
+    
+    - Refactored RecentTradeLogs to support pagination and improved display of trade rounds.
+    - Added human-readable reasons for trade statuses.
+    
+    fix: update subscriptions client to fetch trade logs
+    
+    - Added getTradeLogs method to subscriptions client for fetching trade logs with pagination.
+
+:100644 100644 c93ce05 d6f61dc M	apps/api/src/subscriptions/subscriptions.module.ts
+:100644 100644 9d92e2e 598304d M	apps/api/src/subscriptions/subscriptions.repository.ts
+:100644 100644 bfe2268 f61a0e9 M	apps/api/src/subscriptions/subscriptions.service.ts
+:100644 100644 9eb14f0 4d51036 M	apps/web/src/app/(dashboard)/admin/page.tsx
+:100644 100644 dd18d55 a32be80 M	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+:100644 100644 00bd56d 61eefe3 M	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+:100644 100644 6dcd79f 6269c92 M	apps/web/src/components/marketplace/SubscribeButton.tsx
+:100644 100644 5f3b45a 0cb7981 M	apps/web/src/components/subscriptions/SubscriptionCard.tsx
+:100644 100644 19c38b2 58ce54f M	apps/web/src/lib/api-client/subscriptions.client.ts
+3	1	apps/api/src/subscriptions/subscriptions.module.ts
+8	5	apps/api/src/subscriptions/subscriptions.repository.ts
+66	4	apps/api/src/subscriptions/subscriptions.service.ts
+22	1	apps/web/src/app/(dashboard)/admin/page.tsx
+1	1	apps/web/src/app/(dashboard)/marketplace/[id]/page.tsx
+198	155	apps/web/src/app/(dashboard)/my-blueprints/page.tsx
+46	3	apps/web/src/components/marketplace/SubscribeButton.tsx
+236	24	apps/web/src/components/subscriptions/SubscriptionCard.tsx
+4	0	apps/web/src/lib/api-client/subscriptions.client.ts
+
+commit 27c9020855596f76f3a4e89c13e40a3d236e190f
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:14:04 2026 +0700
+
+    feat: enhance error handling for bar retrieval and add heartbeat trigger endpoint
+
+:100644 100644 d6b1d4d c473a9b M	apps/api/src/blueprints/backtest.service.ts
+:100644 100644 5af5e02 f88a3c5 M	apps/api/src/blueprints/blueprints.service.ts
+:100644 100644 773c488 557ee08 M	apps/api/src/heartbeat/heartbeat.controller.ts
+:100644 100644 4a830df 653fa7d M	apps/api/src/heartbeat/heartbeat.service.spec.ts
+:100644 100644 1d8e894 ffc2a71 M	apps/api/src/heartbeat/heartbeat.service.ts
+:000000 100644 0000000 6eb83c9 A	apps/web/src/lib/api-client/heartbeat.client.ts
+6	2	apps/api/src/blueprints/backtest.service.ts
+6	2	apps/api/src/blueprints/blueprints.service.ts
+13	1	apps/api/src/heartbeat/heartbeat.controller.ts
+342	1	apps/api/src/heartbeat/heartbeat.service.spec.ts
+90	10	apps/api/src/heartbeat/heartbeat.service.ts
+5	0	apps/web/src/lib/api-client/heartbeat.client.ts
+
+commit 98b3ddfde9ad9044d6d042b02b4c39597ddb2f0f
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:13:40 2026 +0700
+
+    feat: update Subscription and TradeLog schemas to enhance validation rules
+
+:100644 100644 68a2c47 63c6720 M	packages/types/src/schemas/subscription.schema.ts
+:100644 100644 395a0ac 33d8545 M	packages/types/src/schemas/trade-log.schema.ts
+3	0	packages/types/src/schemas/subscription.schema.ts
+1	1	packages/types/src/schemas/trade-log.schema.ts
+
+commit 87c5443b3c4688d11877c56c70f554c6fcb2efb4
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:13:20 2026 +0700
+
+    feat: add test subscriptions for tester user in seed script
+
+:100644 100644 0a7650e 9e8f21c M	apps/api/prisma/seed.ts
+47	0	apps/api/prisma/seed.ts
+
+commit f59e5355b6527b93bed70c5b585b3d5af4ba9748
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 21:13:07 2026 +0700
+
+    feat: add symbolOverride field to Subscription model for asset customization
+
+:100644 100644 704c419 9fa2dac M	apps/api/prisma/schema.prisma
+9	8	apps/api/prisma/schema.prisma
+
+commit 7a2cf82892e6e9179df10dccb5931098389de9b5
+Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
+Date:   Wed Apr 15 02:56:25 2026 +0700
+
+    feat: add tryGetLatestCryptoPrice method to AlpacaMarketDataClient and refactor price retrieval in AlpacaAdapter
+
+:100644 100644 d151049 79f7a94 M	apps/api/src/trading/broker/alpaca-market-data.client.ts
+:100644 100644 b969809 2917047 M	apps/api/src/trading/broker/alpaca.adapter.ts
+:100644 100644 b817139 58656d4 M	gitlog.txt
+15	0	apps/api/src/trading/broker/alpaca-market-data.client.ts
+3	13	apps/api/src/trading/broker/alpaca.adapter.ts
+21	0	gitlog.txt
+
 commit 5f304ffba2fe668af9b3db7ec613979a4b8f48e5
 Author: tarothanawat <115664618+tarothanawat@users.noreply.github.com>
 Date:   Wed Apr 15 00:19:02 2026 +0700

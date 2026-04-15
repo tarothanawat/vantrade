@@ -108,6 +108,7 @@ apps/web/src/lib/api-client/auth.client.ts
 apps/web/src/lib/api-client/base.spec.ts
 apps/web/src/lib/api-client/base.ts
 apps/web/src/lib/api-client/blueprints.client.ts
+apps/web/src/lib/api-client/heartbeat.client.ts
 apps/web/src/lib/api-client/market-data.client.ts
 apps/web/src/lib/api-client/subscriptions.client.ts
 apps/web/src/lib/api-client/trade-logs.client.ts
@@ -123,6 +124,7 @@ docs/SRS.md
 docs/Software Arch Project VanTrade.txt
 docs/Software_Arch_Project_VanTrade.pdf
 gitlog.cc.json
+gitlog.cc.json.gz
 gitlog.txt
 package.json
 packages/types/package.json
@@ -140,6 +142,7 @@ packages/types/src/schemas/trade-log.schema.ts
 packages/types/tsconfig.json
 pnpm-workspace.yaml
 rawtext.cc.json
+rawtext.cc.json.gz
 repo-files.txt
 tsconfig.base.json
 turbo.json
