@@ -34,6 +34,7 @@ export interface Subscription {
   createdAt: Date;
   userId: string;
   blueprintId: string;
+  symbolOverride?: string | null;
 }
 
 export interface TradeLog {
@@ -49,3 +50,4 @@ export interface TradeLog {
 }
 
 export * from './IBrokerAdapter';
+
