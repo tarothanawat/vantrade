@@ -126,6 +126,40 @@ async function main() {
       },
       isVerified: true,
     },
+    {
+      id: 'seed-blueprint-TEST',
+      title: '[TEST] Fast Alternating RSI — BTCUSD',
+      description:
+        '[TESTING ONLY] RSI(2) with tight thresholds (buy<45 / sell>55) on BTCUSD 1Min. A 2-period RSI swings dramatically each bar: one up bar pushes RSI above 55, one down bar drops it below 45. Triggers a BUY then a SELL on consecutive heartbeat ticks, proving the full entry → exit round-trip works end-to-end.',
+      parameters: {
+        symbol: 'BTCUSD',
+        executionTimeframe: '1Min',
+        executionMode: 'BUY_LOW_SELL_HIGH',
+        rsiPeriod: 2,
+        rsiBuyThreshold: 50,
+        rsiSellThreshold: 50,
+        maPeriod: 2,
+        quantity: 1,
+      },
+      isVerified: true,
+    },
+    {
+      id: 'seed-blueprint-TEST-SELL',
+      title: '[TEST] Always-Fire SELL — AAPL',
+      description:
+        '[TESTING ONLY] SELL_HIGH_BUY_LOW mode starts expecting a SELL on the very first trigger. RSI sell threshold set to 0 so signal is always SELL. Uses AAPL (equity — paper short-selling supported). Requires NYSE market hours (09:30–16:00 ET Mon–Fri). Trigger POST /api/heartbeat/trigger to verify the SELL execution path. Note: crypto cannot be shorted on Alpaca paper accounts.',
+      parameters: {
+        symbol: 'AAPL',
+        executionTimeframe: '1Min',
+        executionMode: 'SELL_HIGH_BUY_LOW',
+        rsiPeriod: 2,
+        rsiBuyThreshold: 0,
+        rsiSellThreshold: 0,
+        maPeriod: 2,
+        quantity: 1,
+      },
+      isVerified: true,
+    },
   ];
 
   for (const blueprint of seedBlueprints) {
@@ -144,10 +178,23 @@ async function main() {
     });
   }
 
+  // Seed test subscriptions for tester@vantrade.io
+  const tester = await prisma.user.findUnique({ where: { email: 'tester@vantrade.io' } });
+  if (tester) {
+    for (const blueprintId of ['seed-blueprint-TEST', 'seed-blueprint-TEST-SELL']) {
+      await prisma.subscription.upsert({
+        where: { userId_blueprintId: { userId: tester.id, blueprintId } },
+        update: {},
+        create: { userId: tester.id, blueprintId, isActive: true },
+      });
+    }
+  }
+
   console.log('Seeding complete.');
   console.log(`  Admin:    admin@vantrade.io / Admin1234!`);
   console.log(`  Provider: provider@vantrade.io / Provider1234!`);
   console.log(`  Tester:   tester@vantrade.io / Tester1234!`);
+  console.log(`  Subscriptions seeded for tester: [TEST] Always-Fire BUY + SELL`);
 }
 
 main()
