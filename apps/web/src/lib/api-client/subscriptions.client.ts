@@ -2,6 +2,7 @@ import {
   SubscriptionListResponseSchema,
   SubscriptionResponseSchema,
   SubscriptionStatsResponseSchema,
+  TradeLogListResponseSchema,
   type SubscriptionCreateDto,
 } from '@vantrade/types';
 import { apiClient } from './base';
@@ -21,4 +22,7 @@ export const subscriptionsClient = {
 
   getStats: (id: string) =>
     apiClient.get(`/subscriptions/${id}/stats`, undefined, SubscriptionStatsResponseSchema),
+
+  getTradeLogs: (id: string, take: number, skip: number) =>
+    apiClient.get(`/subscriptions/${id}/trade-logs?take=${take}&skip=${skip}`, undefined, TradeLogListResponseSchema),
 };

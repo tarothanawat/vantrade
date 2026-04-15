@@ -10,7 +10,7 @@ export class SubscriptionsRepository {
       where: { userId },
       include: {
         blueprint: true,
-        tradeLogs: { orderBy: { executedAt: 'desc' }, take: 10 },
+        tradeLogs: { orderBy: { executedAt: 'desc' }, take: 40 },
       },
     });
   }
@@ -38,9 +38,9 @@ export class SubscriptionsRepository {
     });
   }
 
-  create(userId: string, blueprintId: string) {
+  create(userId: string, blueprintId: string, symbolOverride?: string) {
     return this.prisma.subscription.create({
-      data: { userId, blueprintId },
+      data: { userId, blueprintId, ...(symbolOverride ? { symbolOverride } : {}) },
     });
   }
 
@@ -51,7 +51,10 @@ export class SubscriptionsRepository {
     });
   }
 
-  delete(id: string) {
-    return this.prisma.subscription.delete({ where: { id } });
+  async deleteWithTradeLogs(id: string) {
+    return this.prisma.$transaction([
+      this.prisma.tradeLog.deleteMany({ where: { subscriptionId: id } }),
+      this.prisma.subscription.delete({ where: { id } }),
+    ]);
   }
 }

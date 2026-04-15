@@ -64,7 +64,7 @@ export default async function BlueprintDetailPage({ params }: Props) {
           <div><span className="text-gray-500">Sell Threshold (RSI &gt;)</span><p className="mt-1 font-semibold text-red-400">{params2.rsiSellThreshold}</p></div>
         </div>
 
-        <SubscribeButton blueprintId={blueprint.id} />
+        <SubscribeButton blueprintId={blueprint.id} defaultSymbol={params2.symbol} />
       </div>
 
       <BacktestPanel

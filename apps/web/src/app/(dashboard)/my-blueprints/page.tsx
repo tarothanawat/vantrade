@@ -10,6 +10,7 @@ import {
   BlueprintCreateSchema,
   BlueprintExecutionModeSchema,
   BlueprintUpdateSchema,
+  IctSessionSchema,
   MarketDataTimeframeSchema,
   type Blueprint,
   type BlueprintCreateDto,
@@ -18,30 +19,56 @@ import {
 } from '@vantrade/types';
 import { useEffect, useMemo, useState } from 'react';
 
+type StrategyType = 'RSI' | 'ICT';
+
 type FormState = {
+  strategyType: StrategyType;
   title: string;
   description: string;
   symbol: string;
+  quantity: string;
+  // RSI fields
   executionTimeframe: MarketDataTimeframe;
   executionMode: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
   rsiPeriod: string;
   rsiBuyThreshold: string;
   rsiSellThreshold: string;
   maPeriod: string;
-  quantity: string;
+  // ICT fields
+  sessionFilter: 'LONDON' | 'NEW_YORK' | 'OVERLAP' | 'ALL';
+  swingLookback: string;
+  slPoints: string;
+  minRR: string;
+  maxTradesPerSession: string;
+  maxLossesPerSession: string;
+  useOrderBlocks: boolean;
+  useFairValueGaps: boolean;
+  fvgMinGapPct: string;
+  requireLiquiditySweep: boolean;
 };
 
 const initialForm: FormState = {
+  strategyType: 'RSI',
   title: '',
   description: '',
   symbol: 'AAPL',
+  quantity: '1',
   executionTimeframe: '1Min',
   executionMode: 'BUY_LOW_SELL_HIGH',
   rsiPeriod: '14',
   rsiBuyThreshold: '30',
   rsiSellThreshold: '70',
   maPeriod: '50',
-  quantity: '1',
+  sessionFilter: 'ALL',
+  swingLookback: '5',
+  slPoints: '10',
+  minRR: '3',
+  maxTradesPerSession: '1',
+  maxLossesPerSession: '1',
+  useOrderBlocks: true,
+  useFairValueGaps: true,
+  fvgMinGapPct: '0.1',
+  requireLiquiditySweep: false,
 };
 
 const executionTimeframeOptions = MarketDataTimeframeSchema.options;
@@ -182,44 +209,46 @@ export default function MyBlueprintsPage() {
   }
 
   const strategyDraft = useMemo(() => {
-    return {
-      title: form.title.trim(),
-      description: form.description.trim(),
-      parameters: {
-        symbol: form.symbol.trim().toUpperCase(),
-        executionTimeframe: form.executionTimeframe,
-        executionMode: form.executionMode,
-        rsiPeriod: Number(form.rsiPeriod),
-        rsiBuyThreshold: Number(form.rsiBuyThreshold),
-        rsiSellThreshold: Number(form.rsiSellThreshold),
-        maPeriod: Number(form.maPeriod),
-        quantity: Number(form.quantity),
-      },
-    };
-  }, [
-    form.description,
-    form.executionMode,
-    form.executionTimeframe,
-    form.maPeriod,
-    form.quantity,
-    form.rsiBuyThreshold,
-    form.rsiPeriod,
-    form.rsiSellThreshold,
-    form.symbol,
-    form.title,
-  ]);
+    const parameters = form.strategyType === 'ICT'
+      ? {
+          strategyType: 'ICT' as const,
+          symbol: form.symbol.trim().toUpperCase(),
+          quantity: Number(form.quantity),
+          sessionFilter: form.sessionFilter,
+          swingLookback: Number(form.swingLookback),
+          slPoints: Number(form.slPoints),
+          minRR: Number(form.minRR),
+          maxTradesPerSession: Number(form.maxTradesPerSession),
+          maxLossesPerSession: Number(form.maxLossesPerSession),
+          useOrderBlocks: form.useOrderBlocks,
+          useFairValueGaps: form.useFairValueGaps,
+          fvgMinGapPct: Number(form.fvgMinGapPct),
+          requireLiquiditySweep: form.requireLiquiditySweep,
+        }
+      : {
+          strategyType: 'RSI' as const,
+          symbol: form.symbol.trim().toUpperCase(),
+          executionTimeframe: form.executionTimeframe,
+          executionMode: form.executionMode,
+          rsiPeriod: Number(form.rsiPeriod),
+          rsiBuyThreshold: Number(form.rsiBuyThreshold),
+          rsiSellThreshold: Number(form.rsiSellThreshold),
+          maPeriod: Number(form.maPeriod),
+          quantity: Number(form.quantity),
+        };
+    return { title: form.title.trim(), description: form.description.trim(), parameters };
+  }, [form]);
 
   const createValidation = useMemo(() => BlueprintCreateSchema.safeParse(strategyDraft), [strategyDraft]);
   const updateValidation = useMemo(() => BlueprintUpdateSchema.safeParse(strategyDraft), [strategyDraft]);
 
-  const thresholdConflict = Number(form.rsiBuyThreshold) >= Number(form.rsiSellThreshold);
+  const thresholdConflict = form.strategyType === 'RSI' && Number(form.rsiBuyThreshold) >= Number(form.rsiSellThreshold);
   const canCreate = createValidation.success && !thresholdConflict;
   const canUpdate = updateValidation.success && !thresholdConflict;
 
-  function fieldError(fieldName: keyof FormState): string | null {
+  function fieldError(fieldName: string): string | null {
     if (createValidation.success) return null;
-
-    const targetPathByField: Record<keyof FormState, string[]> = {
+    const pathMap: Record<string, string[]> = {
       title: ['title'],
       description: ['description'],
       symbol: ['parameters', 'symbol'],
@@ -231,13 +260,11 @@ export default function MyBlueprintsPage() {
       maPeriod: ['parameters', 'maPeriod'],
       quantity: ['parameters', 'quantity'],
     };
-
-    const targetPath = targetPathByField[fieldName];
-    const issue = createValidation.error.issues.find((candidate) => {
-      if (candidate.path.length !== targetPath.length) return false;
-      return targetPath.every((segment, index) => candidate.path[index] === segment);
-    });
-
+    const targetPath = pathMap[fieldName];
+    if (!targetPath) return null;
+    const issue = createValidation.error.issues.find((c) =>
+      c.path.length === targetPath.length && targetPath.every((seg, i) => c.path[i] === seg),
+    );
     return issue?.message ?? null;
   }
 
@@ -300,29 +327,34 @@ export default function MyBlueprintsPage() {
   }
 
   function startEdit(bp: Blueprint) {
-    const params = bp.parameters as {
-      symbol: string;
-      executionTimeframe?: MarketDataTimeframe;
-      executionMode?: 'BUY_LOW_SELL_HIGH' | 'SELL_HIGH_BUY_LOW';
-      rsiPeriod: number;
-      rsiBuyThreshold: number;
-      rsiSellThreshold: number;
-      maPeriod: number;
-      quantity: number;
-    };
-
+    const params = bp.parameters as Record<string, unknown>;
+    const isIct = params['strategyType'] === 'ICT';
     setEditingId(bp.id);
     setForm({
+      ...initialForm,
+      strategyType: isIct ? 'ICT' : 'RSI',
       title: bp.title,
       description: bp.description,
-      symbol: params.symbol,
-      executionTimeframe: params.executionTimeframe ?? '1Min',
-      executionMode: params.executionMode ?? 'BUY_LOW_SELL_HIGH',
-      rsiPeriod: String(params.rsiPeriod),
-      rsiBuyThreshold: String(params.rsiBuyThreshold),
-      rsiSellThreshold: String(params.rsiSellThreshold),
-      maPeriod: String(params.maPeriod),
-      quantity: String(params.quantity),
+      symbol: String(params['symbol'] ?? 'AAPL'),
+      quantity: String(params['quantity'] ?? '1'),
+      // RSI
+      executionTimeframe: (params['executionTimeframe'] as MarketDataTimeframe) ?? '1Min',
+      executionMode: (params['executionMode'] as FormState['executionMode']) ?? 'BUY_LOW_SELL_HIGH',
+      rsiPeriod: String(params['rsiPeriod'] ?? '14'),
+      rsiBuyThreshold: String(params['rsiBuyThreshold'] ?? '30'),
+      rsiSellThreshold: String(params['rsiSellThreshold'] ?? '70'),
+      maPeriod: String(params['maPeriod'] ?? '50'),
+      // ICT
+      sessionFilter: (params['sessionFilter'] as FormState['sessionFilter']) ?? 'ALL',
+      swingLookback: String(params['swingLookback'] ?? '5'),
+      slPoints: String(params['slPoints'] ?? '10'),
+      minRR: String(params['minRR'] ?? '3'),
+      maxTradesPerSession: String(params['maxTradesPerSession'] ?? '1'),
+      maxLossesPerSession: String(params['maxLossesPerSession'] ?? '1'),
+      useOrderBlocks: Boolean(params['useOrderBlocks'] ?? true),
+      useFairValueGaps: Boolean(params['useFairValueGaps'] ?? true),
+      fvgMinGapPct: String(params['fvgMinGapPct'] ?? '0.1'),
+      requireLiquiditySweep: Boolean(params['requireLiquiditySweep'] ?? false),
     });
   }
 
@@ -442,6 +474,24 @@ export default function MyBlueprintsPage() {
           ))}
         </div>
 
+        {/* Strategy type toggle */}
+        <div className="mb-5 flex gap-2">
+          {(['RSI', 'ICT'] as StrategyType[]).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setField('strategyType', type)}
+              className={`rounded-lg px-5 py-2 text-sm font-semibold transition-colors ${
+                form.strategyType === type
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-gray-700 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              {type === 'RSI' ? 'RSI Strategy' : 'ICT / Smart Money'}
+            </button>
+          ))}
+        </div>
+
         <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="bp-title" className="mb-1 block text-sm font-medium text-gray-300">Blueprint Title</label>
@@ -485,104 +535,97 @@ export default function MyBlueprintsPage() {
             {fieldError('description') && <p className="mt-1 text-xs text-red-400">{fieldError('description')}</p>}
           </div>
 
-          <div>
-            <label htmlFor="bp-rsi-period" className="mb-1 block text-sm font-medium text-gray-300">RSI Period</label>
-            <input
-              id="bp-rsi-period"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number" min={2} max={100}
-              value={form.rsiPeriod}
-              onChange={(e) => setField('rsiPeriod', e.target.value)}
-              required
-            />
-            {fieldError('rsiPeriod') && <p className="mt-1 text-xs text-red-400">{fieldError('rsiPeriod')}</p>}
-          </div>
+          {/* RSI-specific fields */}
+          {form.strategyType === 'RSI' && (<>
+            <div>
+              <label htmlFor="bp-rsi-period" className="mb-1 block text-sm font-medium text-gray-300">RSI Period</label>
+              <input id="bp-rsi-period" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={2} max={100} value={form.rsiPeriod} onChange={(e) => setField('rsiPeriod', e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="bp-ma-period" className="mb-1 block text-sm font-medium text-gray-300">MA Period</label>
+              <input id="bp-ma-period" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={2} max={200} value={form.maPeriod} onChange={(e) => setField('maPeriod', e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="bp-exec-timeframe" className="mb-1 block text-sm font-medium text-gray-300">Execution Timeframe</label>
+              <select id="bp-exec-timeframe" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" value={form.executionTimeframe} onChange={(e) => setField('executionTimeframe', e.target.value as MarketDataTimeframe)}>
+                {executionTimeframeOptions.map((tf) => <option key={tf} value={tf}>{tf}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="bp-exec-mode" className="mb-1 block text-sm font-medium text-gray-300">Execution Mode</label>
+              <select id="bp-exec-mode" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" value={form.executionMode} onChange={(e) => setField('executionMode', e.target.value as FormState['executionMode'])}>
+                {executionModeOptions.map((mode) => (
+                  <option key={mode} value={mode}>{mode === 'BUY_LOW_SELL_HIGH' ? 'Buy low → Sell high' : 'Sell high → Buy low'}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="bp-buy-threshold" className="mb-1 block text-sm font-medium text-gray-300">Buy Threshold (RSI &lt;)</label>
+              <input id="bp-buy-threshold" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" step="0.01" min={0} max={100} value={form.rsiBuyThreshold} onChange={(e) => setField('rsiBuyThreshold', e.target.value)} required />
+              <input aria-label="Buy threshold slider" className="mt-2 w-full accent-emerald-500" type="range" min={0} max={100} step={0.5} value={Number(form.rsiBuyThreshold) || 0} onChange={(e) => setField('rsiBuyThreshold', e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="bp-sell-threshold" className="mb-1 block text-sm font-medium text-gray-300">Sell Threshold (RSI &gt;)</label>
+              <input id="bp-sell-threshold" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" step="0.01" min={0} max={100} value={form.rsiSellThreshold} onChange={(e) => setField('rsiSellThreshold', e.target.value)} required />
+              <input aria-label="Sell threshold slider" className="mt-2 w-full accent-rose-500" type="range" min={0} max={100} step={0.5} value={Number(form.rsiSellThreshold) || 0} onChange={(e) => setField('rsiSellThreshold', e.target.value)} />
+              {thresholdConflict && <p className="mt-1 text-xs text-red-400">Buy threshold must stay lower than sell threshold.</p>}
+            </div>
+          </>)}
 
-          <div>
-            <label htmlFor="bp-ma-period" className="mb-1 block text-sm font-medium text-gray-300">MA Period</label>
-            <input
-              id="bp-ma-period"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number" min={2} max={200}
-              value={form.maPeriod}
-              onChange={(e) => setField('maPeriod', e.target.value)}
-              required
-            />
-            {fieldError('maPeriod') && <p className="mt-1 text-xs text-red-400">{fieldError('maPeriod')}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="bp-exec-timeframe" className="mb-1 block text-sm font-medium text-gray-300">Execution Timeframe</label>
-            <select
-              id="bp-exec-timeframe"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              value={form.executionTimeframe}
-              onChange={(event) => setField('executionTimeframe', event.target.value as MarketDataTimeframe)}
-            >
-              {executionTimeframeOptions.map((tf) => <option key={tf} value={tf}>{tf}</option>)}
-            </select>
-            {fieldError('executionTimeframe') && <p className="mt-1 text-xs text-red-400">{fieldError('executionTimeframe')}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="bp-exec-mode" className="mb-1 block text-sm font-medium text-gray-300">Execution Mode</label>
-            <select
-              id="bp-exec-mode"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              value={form.executionMode}
-              onChange={(event) => setField('executionMode', event.target.value as FormState['executionMode'])}
-            >
-              {executionModeOptions.map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode === 'BUY_LOW_SELL_HIGH' ? 'Buy low → Sell high' : 'Sell high → Buy low'}
-                </option>
-              ))}
-            </select>
-            {fieldError('executionMode') && <p className="mt-1 text-xs text-red-400">{fieldError('executionMode')}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="bp-buy-threshold" className="mb-1 block text-sm font-medium text-gray-300">Buy Threshold (RSI &lt;)</label>
-            <input
-              id="bp-buy-threshold"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number" step="0.01" min={0} max={100}
-              value={form.rsiBuyThreshold}
-              onChange={(e) => setField('rsiBuyThreshold', e.target.value)}
-              required
-            />
-            <input
-              aria-label="Buy threshold slider"
-              className="mt-2 w-full accent-emerald-500"
-              type="range" min={0} max={100} step={0.5}
-              value={Number(form.rsiBuyThreshold) || 0}
-              onChange={(e) => setField('rsiBuyThreshold', e.target.value)}
-            />
-            {fieldError('rsiBuyThreshold') && <p className="mt-1 text-xs text-red-400">{fieldError('rsiBuyThreshold')}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="bp-sell-threshold" className="mb-1 block text-sm font-medium text-gray-300">Sell Threshold (RSI &gt;)</label>
-            <input
-              id="bp-sell-threshold"
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white"
-              type="number" step="0.01" min={0} max={100}
-              value={form.rsiSellThreshold}
-              onChange={(e) => setField('rsiSellThreshold', e.target.value)}
-              required
-            />
-            <input
-              aria-label="Sell threshold slider"
-              className="mt-2 w-full accent-rose-500"
-              type="range" min={0} max={100} step={0.5}
-              value={Number(form.rsiSellThreshold) || 0}
-              onChange={(e) => setField('rsiSellThreshold', e.target.value)}
-            />
-            {fieldError('rsiSellThreshold') && <p className="mt-1 text-xs text-red-400">{fieldError('rsiSellThreshold')}</p>}
-            {thresholdConflict && (
-              <p className="mt-1 text-xs text-red-400">Buy threshold must stay lower than sell threshold.</p>
+          {/* ICT-specific fields */}
+          {form.strategyType === 'ICT' && (<>
+            <div>
+              <label htmlFor="bp-session" className="mb-1 block text-sm font-medium text-gray-300">Trading Session</label>
+              <select id="bp-session" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" value={form.sessionFilter} onChange={(e) => setField('sessionFilter', e.target.value as FormState['sessionFilter'])}>
+                {IctSessionSchema.options.map((s) => (
+                  <option key={s} value={s}>{{ ALL: 'All Sessions (24/7)', LONDON: 'London (07:00–10:00 UTC)', NEW_YORK: 'New York (13:00–16:00 UTC)', OVERLAP: 'NY/London Overlap (13:00–16:00 UTC)' }[s]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="bp-swing" className="mb-1 block text-sm font-medium text-gray-300">Swing Lookback (bars)</label>
+              <input id="bp-swing" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={3} max={20} value={form.swingLookback} onChange={(e) => setField('swingLookback', e.target.value)} required />
+              <p className="mt-1 text-xs text-gray-500">Bars each side to confirm a swing high/low.</p>
+            </div>
+            <div>
+              <label htmlFor="bp-sl" className="mb-1 block text-sm font-medium text-gray-300">Stop Loss (price points)</label>
+              <input id="bp-sl" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={0.1} step={0.1} value={form.slPoints} onChange={(e) => setField('slPoints', e.target.value)} required />
+              <p className="mt-1 text-xs text-gray-500">e.g. 10 = $10 below entry for XAUUSD.</p>
+            </div>
+            <div>
+              <label htmlFor="bp-rr" className="mb-1 block text-sm font-medium text-gray-300">Min Risk:Reward</label>
+              <input id="bp-rr" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={1} step={0.5} value={form.minRR} onChange={(e) => setField('minRR', e.target.value)} required />
+              <p className="mt-1 text-xs text-gray-500">TP = entry ± (SL × R:R).</p>
+            </div>
+            <div>
+              <label htmlFor="bp-max-trades" className="mb-1 block text-sm font-medium text-gray-300">Max Trades / Session</label>
+              <input id="bp-max-trades" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={1} max={20} value={form.maxTradesPerSession} onChange={(e) => setField('maxTradesPerSession', e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="bp-max-losses" className="mb-1 block text-sm font-medium text-gray-300">Max Losses / Session</label>
+              <input id="bp-max-losses" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={1} max={10} value={form.maxLossesPerSession} onChange={(e) => setField('maxLossesPerSession', e.target.value)} required />
+            </div>
+            <div className="md:col-span-2 flex flex-wrap gap-6">
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input type="checkbox" className="accent-indigo-500" checked={form.useOrderBlocks} onChange={(e) => setField('useOrderBlocks', e.target.checked)} />
+                Use Order Blocks
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input type="checkbox" className="accent-indigo-500" checked={form.useFairValueGaps} onChange={(e) => setField('useFairValueGaps', e.target.checked)} />
+                Use Fair Value Gaps
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                <input type="checkbox" className="accent-indigo-500" checked={form.requireLiquiditySweep} onChange={(e) => setField('requireLiquiditySweep', e.target.checked)} />
+                Require Liquidity Sweep
+              </label>
+            </div>
+            {form.useFairValueGaps && (
+              <div>
+                <label htmlFor="bp-fvg" className="mb-1 block text-sm font-medium text-gray-300">FVG Min Gap (%)</label>
+                <input id="bp-fvg" className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white" type="number" min={0} max={5} step={0.01} value={form.fvgMinGapPct} onChange={(e) => setField('fvgMinGapPct', e.target.value)} />
+              </div>
             )}
-          </div>
+          </>)}
 
           <div className="md:col-span-2">
             <label htmlFor="bp-qty" className="mb-1 block text-sm font-medium text-gray-300">Order Quantity</label>
@@ -678,7 +721,7 @@ export default function MyBlueprintsPage() {
           ) : null}
         </div>
 
-        {marketBars.length === 0 && !marketLoading && (
+        {form.strategyType === 'RSI' && marketBars.length === 0 && !marketLoading && (
           <RsiPreviewChart preview={preview} />
         )}
 
