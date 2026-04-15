@@ -4,6 +4,7 @@ import { TradeLogSchema } from './trade-log.schema';
 
 export const SubscriptionCreateSchema = z.object({
   blueprintId: z.string().min(1),
+  symbolOverride: z.string().min(1).optional(),
 });
 
 export const SubscriptionToggleSchema = z.object({
@@ -16,6 +17,7 @@ export const SubscriptionResponseSchema = z.object({
   createdAt: z.coerce.date(),
   userId: z.string().min(1),
   blueprintId: z.string().min(1),
+  symbolOverride: z.string().nullable().optional(),
   blueprint: BlueprintResponseSchema.optional(),
   tradeLogs: z.array(TradeLogSchema).optional(),
 });
@@ -29,6 +31,7 @@ export const SubscriptionStatsResponseSchema = z.object({
   sellCount: z.number().int().nonnegative(),
   holdCount: z.number().int().nonnegative(),
   totalPnl: z.number(),
+  unrealizedPnl: z.number(),
   winCount: z.number().int().nonnegative(),
   lossCount: z.number().int().nonnegative(),
 });

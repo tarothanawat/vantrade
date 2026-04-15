@@ -5,7 +5,7 @@ export const TradeLogSchema = z.object({
   symbol: z.string(),
   side: z.enum(['buy', 'sell', 'hold']),
   quantity: z.number().nonnegative(),
-  price: z.number().positive(),
+  price: z.number().nonnegative(),
   pnl: z.number().nullable(),
   status: z.string(),
   executedAt: z.coerce.date(),
