@@ -47,14 +47,15 @@ model Blueprint {
 }
 
 model Subscription {
-  id          String     @id @default(cuid())
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  userId      String
-  blueprintId String
-  user        User       @relation(fields: [userId], references: [id])
-  blueprint   Blueprint  @relation(fields: [blueprintId], references: [id])
-  tradeLogs   TradeLog[]
+  id             String     @id @default(cuid())
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  userId         String
+  blueprintId    String
+  symbolOverride String?    // tester-chosen asset; overrides blueprint.parameters.symbol when set
+  user           User       @relation(fields: [userId], references: [id])
+  blueprint      Blueprint  @relation(fields: [blueprintId], references: [id])
+  tradeLogs      TradeLog[]
 
   @@unique([userId, blueprintId])
 }
