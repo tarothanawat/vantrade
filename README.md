@@ -216,10 +216,10 @@ Then load `vantrade.cc.json` in the visualization app.
 
 To regenerate the git-history layer (only needed after significant commit history changes):
 ```bash
-echo '' | ccsh gitlogparser repo-scan -nc -o gitlog.cc.json --repo-path .
+pnpm codecharta:gitlog
 ```
 
-> **Windows note:** the `echo '' |` prefix is required when running `ccsh` from Git Bash — it satisfies a stdin check in the Java runtime that otherwise throws on Windows console handles.
+> **Windows note:** avoid calling `ccsh` directly (global PATH shims can resolve to a broken script on some setups). Use the provided pnpm scripts (`pnpm codecharta:gitlog`, `pnpm codecharta:analyze`) which invoke the local `codecharta-analysis` launcher from this repository.
 
 ---
 
@@ -263,5 +263,15 @@ echo '' | ccsh gitlogparser repo-scan -nc -o gitlog.cc.json --repo-path .
 ### Tester Dashboard — Active Subscriptions & Trade logs
 ![Dashboard](docs/screenshots/dashboard.png)
 
+### Provider — Manage can create your trading blueprint
+![blueprint creation](docs/screenshots/blueprint_creation.png)
+
+![blueprint creation chart](docs/screenshots/blueprint_creation_chart.png)
+
+![your blueprint list](docs/screenshots/your_blueprint_list.png)
+
 ### Admin — Blueprint Verification
-![Admin](docs/screenshots/admin.png)
+![Admin](docs/screenshots/admin_blueprint.png)
+
+### Admin — User Management
+![Admin](docs/screenshots/admin_user_role_manage_ment.png)
