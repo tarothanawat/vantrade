@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@vantrade/types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -14,5 +14,17 @@ export class HeartbeatController {
   @Get('status')
   getStatus() {
     return this.heartbeatService.getStatus();
+  }
+
+  /**
+   * Manually trigger one heartbeat tick immediately.
+   * Useful for testing subscription execution without waiting for the 60-second cron.
+   * ADMIN only.
+   */
+  @Post('trigger')
+  @HttpCode(200)
+  async trigger() {
+    await this.heartbeatService.tick();
+    return { triggered: true, triggeredAt: new Date().toISOString() };
   }
 }

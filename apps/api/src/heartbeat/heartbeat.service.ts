@@ -136,7 +136,10 @@ export class HeartbeatService {
         this.logger.warn(`Invalid blueprint parameters for subscription ${sub.id} — skipping`);
         return;
       }
-      const params = parsedParams.data;
+      // Apply the tester's symbol override so both RSI and ICT paths use it transparently.
+      const params = sub.symbolOverride
+        ? { ...parsedParams.data, symbol: sub.symbolOverride }
+        : parsedParams.data;
 
       if (params.strategyType === 'ICT') {
         return await this.processIctSub(sub, params);
@@ -238,13 +241,32 @@ export class HeartbeatService {
     const apiSecret = this.encryptionService.decrypt(defaultKey.encryptedSecret);
     const result = await this.broker.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
 
+    const exitPrice = result.filledPrice > 0 ? result.filledPrice : currentPrice;
+
+    // Calculate P&L only when this is the exit leg.
+    // BUY_LOW_SELL_HIGH: SELL closes the long.
+    // SELL_HIGH_BUY_LOW: BUY closes the short.
+    const isExitLeg = executionMode === 'SELL_HIGH_BUY_LOW'
+      ? signalSide === OrderSide.BUY
+      : signalSide === OrderSide.SELL;
+
+    let pnl: number | null = null;
+    if (isExitLeg) {
+      const entryLog = await this.tradeLogsRepo.findLastExecutedBySubscription(sub.id);
+      if (entryLog) {
+        pnl = executionMode === 'SELL_HIGH_BUY_LOW'
+          ? (entryLog.price - exitPrice) * params.quantity  // closed a short
+          : (exitPrice - entryLog.price) * params.quantity; // closed a long
+      }
+    }
+
     await this.tradeLogsRepo.create({
       subscriptionId: sub.id,
       symbol: params.symbol,
       side: signal,
       quantity: params.quantity,
-      price: result.filledPrice,
-      pnl: null,
+      price: exitPrice,
+      pnl,
       status: result.status,
     });
   }
@@ -285,7 +307,65 @@ export class HeartbeatService {
       return;
     }
 
-    // Fetch all 3 timeframes in parallel (each cached independently)
+    const apiKey    = this.encryptionService.decrypt(defaultKey.encryptedKey);
+    const apiSecret = this.encryptionService.decrypt(defaultKey.encryptedSecret);
+
+    // ── Gate 5: Check if there is an open bracket position ───────────────────
+    // If yes, poll Alpaca positions. If the position closed (TP/SL fired), write
+    // the exit log and return — do NOT look for a new entry this tick.
+    const lastEntry = await this.tradeLogsRepo.findLastExecutedBySubscription(sub.id);
+    if (lastEntry?.status.startsWith('bracket_entry:')) {
+      const parts = lastEntry.status.split(':');
+      // format: bracket_entry:<symbol>:<side>:<entryPrice>:<slPrice>:<tpPrice>
+      const [, bracketSymbol, bracketSide, entryPriceStr, slPriceStr, tpPriceStr] = parts;
+      const entryPrice = Number(entryPriceStr);
+      const slPrice    = Number(slPriceStr);
+      const tpPrice    = Number(tpPriceStr);
+
+      const positions = await this.broker.getPositionsWithCredentials(apiKey, apiSecret);
+      const normalizedSymbol = bracketSymbol.toUpperCase();
+      const stillOpen = positions.some((p) => {
+        const s = p.symbol.toUpperCase().replace('/', '');
+        return s === normalizedSymbol || s === normalizedSymbol.replace('USD', '') + 'USD';
+      });
+
+      if (!stillOpen) {
+        // Position was closed by Alpaca (TP or SL triggered).
+        // Determine which by checking which price is closer to current market price.
+        const m5Now = await this.getCachedBars(params.symbol, '5Min', 1);
+        const currentPrice = m5Now.at(-1)?.close ?? entryPrice;
+        const isTP = bracketSide === OrderSide.BUY
+          ? currentPrice >= tpPrice
+          : currentPrice <= tpPrice;
+
+        const exitPrice = isTP ? tpPrice : slPrice;
+        const pnl = bracketSide === OrderSide.BUY
+          ? (exitPrice - entryPrice) * params.quantity
+          : (entryPrice - exitPrice) * params.quantity;
+        const exitSide = bracketSide === OrderSide.BUY ? OrderSide.SELL : OrderSide.BUY;
+
+        this.logger.log(
+          `ICT bracket closed for sub ${sub.id} — ${isTP ? 'TP' : 'SL'} @ ${exitPrice.toFixed(2)} pnl=${pnl.toFixed(2)}`,
+        );
+
+        await this.tradeLogsRepo.create({
+          subscriptionId: sub.id,
+          symbol: params.symbol,
+          side: exitSide,
+          quantity: params.quantity,
+          price: exitPrice,
+          pnl,
+          status: isTP ? 'bracket_exit:tp' : 'bracket_exit:sl',
+        });
+
+        if (!isTP) sessionState.lossesThisSession++;
+      } else {
+        this.logger.debug(`ICT bracket still open for sub ${sub.id} — waiting for TP/SL`);
+      }
+      return; // either way, don't place a new entry this tick
+    }
+
+    // ── No open bracket — look for a new entry signal ─────────────────────────
     const BAR_LIMIT = 60;
     const [h1Bars, m15Bars, m5Bars] = await Promise.all([
       this.getCachedBars(params.symbol, '1Hour', BAR_LIMIT),
@@ -331,20 +411,20 @@ export class HeartbeatService {
       },
     };
 
-    const apiKey    = this.encryptionService.decrypt(defaultKey.encryptedKey);
-    const apiSecret = this.encryptionService.decrypt(defaultKey.encryptedSecret);
-    const result    = await this.broker.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
-
+    const result = await this.broker.placeOrderWithCredentials(orderParams, apiKey, apiSecret);
     sessionState.tradesThisSession++;
 
+    // Encode bracket metadata in status so the next tick can monitor the position.
+    // format: bracket_entry:<symbol>:<side>:<entryPrice>:<slPrice>:<tpPrice>
+    const entryPrice = result.filledPrice || signalResult.limitPrice!;
     await this.tradeLogsRepo.create({
       subscriptionId: sub.id,
       symbol: params.symbol,
       side: signalResult.signal,
       quantity: params.quantity,
-      price: signalResult.limitPrice!,
+      price: entryPrice,
       pnl: null,
-      status: result.status,
+      status: `bracket_entry:${params.symbol}:${signalResult.side}:${entryPrice}:${signalResult.stopLossPrice}:${signalResult.takeProfitPrice}`,
     });
   }
 }

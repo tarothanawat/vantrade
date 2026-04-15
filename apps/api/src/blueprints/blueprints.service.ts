@@ -93,7 +93,9 @@ export class BlueprintsService {
 
   private async getDryRunRsiSignal(params: RsiParametersDto) {
     const requiredBars = params.rsiPeriod + 1;
-    const bars = await this.broker.getRecentBars(params.symbol, params.executionTimeframe, requiredBars);
+    const bars = await this.broker.getRecentBars(params.symbol, params.executionTimeframe, requiredBars).catch((err: unknown) => {
+      throw new BadRequestException(err instanceof Error ? err.message : `Failed to fetch bars for ${params.symbol}`);
+    });
 
     if (bars.length < requiredBars) {
       throw new BadRequestException(
@@ -115,7 +117,9 @@ export class BlueprintsService {
       this.broker.getRecentBars(params.symbol, '1Hour', BAR_LIMIT),
       this.broker.getRecentBars(params.symbol, '15Min', BAR_LIMIT),
       this.broker.getRecentBars(params.symbol, '5Min',  BAR_LIMIT),
-    ]);
+    ]).catch((err: unknown) => {
+      throw new BadRequestException(err instanceof Error ? err.message : `Failed to fetch bars for ${params.symbol}`);
+    });
 
     const result = generateIctSignal({
       h1Bars,

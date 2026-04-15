@@ -98,7 +98,9 @@ export class BacktestService {
       );
     }
 
-    const bars = await this.broker.getRecentBars(symbol, timeframe, limit);
+    const bars = await this.broker.getRecentBars(symbol, timeframe, limit).catch((err: unknown) => {
+      throw new BadRequestException(err instanceof Error ? err.message : `Failed to fetch bars for ${symbol}`);
+    });
 
     if (bars.length < params.rsiPeriod + 1) {
       throw new BadRequestException(
@@ -144,7 +146,9 @@ export class BacktestService {
     slippagePct = 0,
     commissionPerTrade = 0,
   ): Promise<BacktestResultDto> {
-    const m5Bars = await this.broker.getRecentBars(symbol, '5Min', limit);
+    const m5Bars = await this.broker.getRecentBars(symbol, '5Min', limit).catch((err: unknown) => {
+      throw new BadRequestException(err instanceof Error ? err.message : `Failed to fetch bars for ${symbol}`);
+    });
 
     const minBars = params.swingLookback * 2 + 3;
     if (m5Bars.length < minBars) {
