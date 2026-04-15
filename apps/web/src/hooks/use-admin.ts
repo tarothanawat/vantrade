@@ -1,6 +1,7 @@
 'use client';
 
 import { blueprintsClient } from '@/lib/api-client/blueprints.client';
+import { heartbeatClient } from '@/lib/api-client/heartbeat.client';
 import { usersClient } from '@/lib/api-client/users.client';
 import type { Blueprint, UserListItemDto } from '@vantrade/types';
 import { type Role } from '@vantrade/types';
@@ -12,6 +13,8 @@ export function useAdmin() {
   const [pendingRoles, setPendingRoles] = useState<Record<string, Role>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [triggering, setTriggering] = useState(false);
+  const [lastTriggeredAt, setLastTriggeredAt] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -53,5 +56,18 @@ export function useAdmin() {
     }
   }
 
-  return { blueprints, users, pendingRoles, setPendingRoles, loading, error, handleVerify, handleAssignRole };
+  async function handleTriggerHeartbeat() {
+    setTriggering(true);
+    setError('');
+    try {
+      const result = await heartbeatClient.trigger();
+      setLastTriggeredAt(result.triggeredAt);
+    } catch {
+      setError('Failed to trigger heartbeat');
+    } finally {
+      setTriggering(false);
+    }
+  }
+
+  return { blueprints, users, pendingRoles, setPendingRoles, loading, error, handleVerify, handleAssignRole, triggering, lastTriggeredAt, handleTriggerHeartbeat };
 }

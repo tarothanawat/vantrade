@@ -21,6 +21,13 @@ export class TradeLogsRepository {
     return this.prisma.tradeLog.create({ data });
   }
 
+  findLastExecutedBySubscription(subscriptionId: string) {
+    return this.prisma.tradeLog.findFirst({
+      where: { subscriptionId, side: { in: [OrderSide.BUY, OrderSide.SELL] } },
+      orderBy: { executedAt: 'desc' },
+    });
+  }
+
   findLatestTradeSideBySubscription(subscriptionId: string) {
     return this.prisma.tradeLog.findFirst({
       where: {

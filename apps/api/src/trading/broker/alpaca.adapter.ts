@@ -9,7 +9,7 @@ import type {
     Position,
 } from '@vantrade/types';
 import { OrderSide, OrderStatus } from '@vantrade/types';
-import { getStockSymbolCandidates } from './symbol-normalizer';
+import { getCryptoSymbolCandidates, getStockSymbolCandidates, isCryptoLikeSymbol } from './symbol-normalizer';
 import { AlpacaMarketDataClient } from './alpaca-market-data.client';
 
 @Injectable()
@@ -65,10 +65,13 @@ export class AlpacaAdapter implements IBrokerAdapter {
 
   async placeOrderWithCredentials(params: OrderParams, apiKey: string, apiSecret: string): Promise<OrderResult> {
     const client = this.buildClient(apiKey, apiSecret);
-    const candidates = getStockSymbolCandidates(params.symbol);
+    const isCrypto = isCryptoLikeSymbol(params.symbol);
+    const candidates = isCrypto
+      ? getCryptoSymbolCandidates(params.symbol)
+      : getStockSymbolCandidates(params.symbol);
     return params.limitOrder
-      ? this.placeBracketLimitOrder(client, params, candidates)
-      : this.placeMarketOrder(client, params, candidates);
+      ? this.placeBracketLimitOrder(client, params, candidates, isCrypto)
+      : this.placeMarketOrder(client, params, candidates, isCrypto);
   }
 
   async placeOrder(params: OrderParams): Promise<OrderResult> {
@@ -79,7 +82,15 @@ export class AlpacaAdapter implements IBrokerAdapter {
     );
   }
 
-  private async placeMarketOrder(client: Alpaca, params: OrderParams, candidates: string[]): Promise<OrderResult> {
+  private async placeMarketOrder(client: Alpaca, params: OrderParams, candidates: string[], isCrypto: boolean): Promise<OrderResult> {
+    // Alpaca paper crypto does not support short selling.
+    // A SELL on crypto must close an existing long — use closePosition instead of createOrder.
+    if (isCrypto && params.side === OrderSide.SELL) {
+      return this.closeCryptoPosition(client, params, candidates);
+    }
+
+    // Alpaca crypto only supports 'gtc' | 'ioc' | 'fok' — 'day' is equities-only
+    const tif = isCrypto ? 'gtc' : 'day';
     let order: Record<string, unknown> | null = null;
     let placedSymbol = params.symbol;
     let lastError: Error | null = null;
@@ -87,7 +98,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
     for (const candidate of candidates) {
       try {
         order = (await client.createOrder({
-          symbol: candidate, qty: params.quantity, side: params.side, type: 'market', time_in_force: 'day',
+          symbol: candidate, qty: params.quantity, side: params.side, type: 'market', time_in_force: tif,
         })) as Record<string, unknown>;
         placedSymbol = candidate;
         break;
@@ -105,8 +116,33 @@ export class AlpacaAdapter implements IBrokerAdapter {
     return this.mapOrderResult(order);
   }
 
-  private async placeBracketLimitOrder(client: Alpaca, params: OrderParams, candidates: string[]): Promise<OrderResult> {
+  private async closeCryptoPosition(client: Alpaca, params: OrderParams, candidates: string[]): Promise<OrderResult> {
+    let order: Record<string, unknown> | null = null;
+    let closedSymbol = params.symbol;
+    let lastError: Error | null = null;
+
+    for (const candidate of candidates) {
+      try {
+        order = (await (client as unknown as Record<string, (s: string) => Promise<unknown>>)['closePosition'](candidate)) as Record<string, unknown>;
+        closedSymbol = candidate;
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error('Unknown Alpaca close error');
+        this.logger.warn(`closePosition failed for ${candidate}: ${lastError.message}`);
+      }
+    }
+
+    if (!order) {
+      throw new Error(`Failed to close position for ${params.symbol}. Tried: ${candidates.join(', ')}${lastError ? ` (${lastError.message})` : ''}`);
+    }
+
+    this.logger.log(`Crypto position closed: ${closedSymbol} — orderId=${order['id']}`);
+    return this.mapOrderResult(order);
+  }
+
+  private async placeBracketLimitOrder(client: Alpaca, params: OrderParams, candidates: string[], isCrypto: boolean): Promise<OrderResult> {
     const { limitPrice, stopLossPrice, takeProfitPrice } = params.limitOrder!;
+    const tif = isCrypto ? 'gtc' : 'day';
     let order: Record<string, unknown> | null = null;
     let placedSymbol = params.symbol;
     let lastError: Error | null = null;
@@ -115,7 +151,7 @@ export class AlpacaAdapter implements IBrokerAdapter {
       try {
         order = (await client.createOrder({
           symbol: candidate, qty: params.quantity, side: params.side,
-          type: 'limit', time_in_force: 'day', order_class: 'bracket',
+          type: 'limit', time_in_force: tif, order_class: 'bracket',
           limit_price: limitPrice,
           stop_loss: { stop_price: stopLossPrice },
           take_profit: { limit_price: takeProfitPrice },
