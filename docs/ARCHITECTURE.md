@@ -18,9 +18,14 @@ vantrade/
 ```
 
 **Why it matters:**
-- Code sharing without a separate npm package publish step — `@vantrade/types` is resolved locally via workspace linking.
-- Turborepo caches build artifacts (`turbo.json`) so unchanged packages are not rebuilt.
-- A single `pnpm install` at the root wires everything together.
+- A single `pnpm install` at the root wires everything together, eliminating the coordination overhead of managing separate repositories for a small team.
+- Turborepo caches build artifacts (`turbo.json`) so unchanged packages are not rebuilt, keeping CI fast as the codebase grows.
+- `@vantrade/types` is resolved locally via workspace linking — no publish step needed to share contracts between API and web.
+
+**Trade-offs:**
+- A single repository means a single CI pipeline; a broken test in `apps/web` can block an unrelated `apps/api` deployment.
+- Turborepo configuration adds tooling complexity that must be understood by every contributor.
+- Workspace linking means all packages must be built together; the monorepo does not enforce independent deployment cadences.
 
 **Key file:** `turbo.json`, `pnpm-workspace.yaml`
 
@@ -87,6 +92,13 @@ The **only** file in the entire codebase that imports `@alpacahq/alpaca-trade-ap
 
 To swap to a different broker, only this binding changes — zero modifications to domain logic or the heartbeat service.
 
+**Why it matters (business driver):** A trading platform has an obligation to users that its financial calculations are correct and demonstrably verifiable — not just "probably right" based on end-to-end runs. Pure domain functions satisfy this obligation: they can be proven correct with unit tests against known inputs, independently of any network or database state. The adapter boundary also protects the platform from vendor lock-in; if Alpaca changes its API or pricing, migration is a single-file change rather than a codebase-wide refactor.
+
+**Trade-offs:**
+- The `IBrokerAdapter` interface must be updated whenever a new broker capability is needed; every existing adapter must implement the new method even if it is unsupported.
+- Three layers of indirection (domain → port → adapter) make it harder to trace a single execution path during debugging.
+- Pure functions cannot encapsulate state, so any stateful caching (e.g., bar cache) must live outside the domain layer.
+
 ---
 
 ## 3. Repository Pattern
@@ -101,9 +113,16 @@ To swap to a different broker, only this binding changes — zero modifications 
 | `TradeLogsRepository` | `trade-logs/trade-logs.repository.ts` | Append-only trade log writes and reads |
 | `BlueprintsRepository` | `blueprints/blueprints.repository.ts` | Marketplace CRUD + admin queries |
 | `ApiKeysRepository` | `api-keys/api-keys.repository.ts` | Encrypted credential storage |
-| `AuthRepository` | `auth/auth.repository.ts` | User lookup and creation |
+| `AuthRepository` | `auth/auth.repository.ts` | User lookup, creation, and role assignment |
 
 **PrismaModule** is declared `@Global()` in `apps/api/src/prisma/prisma.module.ts` so `PrismaService` is injected into repositories without requiring explicit module imports everywhere.
+
+**Why it matters (business driver):** Financial platforms need the ability to audit, migrate, or replace their persistence layer without touching business rules. By confining all Prisma access to repository files, the repository layer can be rewritten (e.g., switching ORMs, adding read replicas, migrating to a different database) without any risk of accidentally altering the subscription logic, heartbeat, or RBAC behaviour.
+
+**Trade-offs:**
+- Every new database query requires a dedicated method in the repository, which can lead to query proliferation as the feature set grows.
+- Service-level tests must mock the entire repository interface, creating test boilerplate that must stay in sync with the real repository.
+- The `@Global()` PrismaModule means `PrismaService` is available everywhere, relying on developer discipline to keep it out of non-repository files.
 
 ---
 
@@ -135,6 +154,11 @@ The API contains **10 feature modules**, each following the same structure:
 
 **Thin Controller Rule:** Controllers do exactly three things — validate with `ZodValidationPipe`, call one service method, return the result. No conditionals, no Prisma, no SDK calls inside controllers.
 
+**Trade-offs:**
+- Vertical slices can lead to duplicated utility logic across modules if shared abstractions are not extracted into common packages.
+- The thin controller rule means debugging requires navigating an extra indirection layer (controller → service) before reaching the actual logic.
+- Ten modules add NestJS DI boilerplate; wiring cross-module dependencies (e.g., `TradeLogsModule` exported into `HeartbeatModule`) requires explicit `imports` declarations in each module file.
+
 ---
 
 ## 5. Background Processing — Heartbeat Execution Loop
@@ -165,6 +189,14 @@ tick()
 
 **`Promise.allSettled()`** ensures that a failure in one subscription (e.g., invalid credentials, network error) does not block or cancel execution for all other subscriptions.
 
+**Why it matters (business driver):** In a multi-tenant platform, one user's misconfigured API key or expired credentials must not cause financial harm to other users by blocking their automated trades. `Promise.allSettled` makes fault isolation a structural guarantee rather than a best-effort try/catch.
+
+**Trade-offs:**
+- A fixed 60-second tick means all subscriptions share the same schedule; there is no per-subscription granularity (e.g., a user cannot choose a 30-second cadence).
+- A slow Alpaca response for one subscription occupies a Promise slot for the full duration of its timeout, reducing effective parallelism.
+- The heartbeat runs in-process inside the NestJS API; under high subscription load it competes for CPU with HTTP request handling.
+- Cron-based scheduling has no built-in backpressure; if one tick's work is not complete before the next fires, subscriptions can queue up.
+
 ---
 
 ## 6. Shared Type Package — Single Source of Truth
@@ -193,6 +225,11 @@ Zod schemas are defined **once** and used:
 
 This eliminates duplicated type definitions and ensures both apps agree on the same contract.
 
+**Trade-offs:**
+- Breaking schema changes require coordinated updates to both apps; a schema field removal will cause a compile error in both `apps/api` and `apps/web` simultaneously.
+- The package must be rebuilt and re-linked (`pnpm install`) before changes propagate to consumers.
+- Zod runtime validation on every API response adds a small but non-zero overhead on every frontend request.
+
 ---
 
 ## 7. Typed API Client Layer (Frontend)
@@ -211,6 +248,7 @@ Every entity has its own client file:
 | API Keys | `api-keys.client.ts` |
 | Market Data | `market-data.client.ts` |
 | Trade Logs | `trade-logs.client.ts` |
+| Users (admin) | `users.client.ts` |
 
 All clients use a shared generic `apiClient` from `base.ts`:
 
@@ -262,7 +300,26 @@ findAll() { ... }
 |---|---|
 | `TESTER` | Browse verified blueprints, subscribe, manage API keys |
 | `PROVIDER` | All TESTER permissions + create/edit/delete own blueprints |
-| `ADMIN` | All permissions + verify blueprints, view all data |
+| `ADMIN` | All permissions + verify blueprints, view all users and blueprints, assign user roles |
+
+**Admin-only endpoints:**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /blueprints/admin/all` | View all blueprints including unverified |
+| `PATCH /blueprints/:id/verify` | Approve or revoke a blueprint |
+| `GET /auth/users` | List all registered users |
+| `PATCH /auth/users/:id/role` | Promote or demote a user's role |
+| `GET /heartbeat/status` | Monitor the cron execution loop |
+
+Role assignment is the mechanism that makes RBAC real end-to-end: new registrations always receive `Role.TESTER`, and only an admin can promote a user to `PROVIDER` or `ADMIN` via the API.
+
+**Why it matters (business driver):** In a marketplace where Providers publish strategies that Testers execute with real broker accounts, privilege escalation is a direct financial risk — a malicious actor who could self-assign `PROVIDER` could publish harmful blueprints without admin review. Server-side RBAC removes this attack surface entirely: the client cannot influence its own role.
+
+**Trade-offs:**
+- JWTs are stateless and cannot be revoked before expiry; a role change (e.g., admin demoting a user) does not take effect until the affected user's token expires and they re-login.
+- Storing the role in the JWT means a compromised token grants that role for its full lifetime, with no server-side kill switch.
+- The `RolesGuard` performs a simple equality check; it does not support hierarchical roles (e.g., ADMIN inheriting PROVIDER permissions explicitly), so shared endpoints must list all permitted roles.
 
 ---
 
@@ -279,6 +336,13 @@ Broker API keys are sensitive and must never be stored in plaintext or appear in
 - **Storage format:** `iv:authTag:ciphertext` (all hex) in the `ApiKey` table
 - **Decryption:** Happens inside `HeartbeatService.processSub()`, in memory, immediately before the order is placed. The decrypted key is passed as a function argument — **never stored on the adapter instance**.
 
+**Why it matters (business driver):** Users are trusting the platform with their live brokerage credentials. A database breach that exposed plaintext API keys would allow an attacker to place real trades on users' accounts. AES-256-GCM encryption ensures that even a full database dump reveals nothing usable — and the authenticated encryption detects any tampering with stored ciphertext before decryption is attempted.
+
+**Trade-offs:**
+- If the `ENCRYPTION_KEY` environment variable is lost or rotated without re-encrypting existing rows, all stored credentials become permanently inaccessible and users must re-enter their keys.
+- `scrypt` key derivation adds a small startup cost and makes credential decryption slightly slower per call compared to a raw symmetric key.
+- AES-256-GCM with a random IV means each encryption of the same key produces different ciphertext; deterministic searching across encrypted values is not possible.
+
 ---
 
 ## 10. Append-Only Audit Log
@@ -293,6 +357,13 @@ Broker API keys are sensitive and must never be stored in plaintext or appear in
 - `findLatestTradeSideBySubscription(id)` — used to enforce trade alternation
 
 This is enforced at the application layer: no `update` or `delete` methods exist on `TradeLogsRepository`. Any trade execution — including errors and HOLD signals — is logged, providing a complete, tamper-evident audit trail.
+
+**Why it matters (business driver):** Users need to be able to independently verify their trade history and P&L. An audit trail that can be edited is no audit trail at all — it provides no protection against disputes or errors. The immutable log also enables the trade side alternation logic in the heartbeat: the system derives "what should happen next" solely from what is recorded, with no mutable state to go out of sync.
+
+**Trade-offs:**
+- Storage grows indefinitely; there is no archival or compaction mechanism for old trade logs.
+- Queries that need the "current state" (e.g., last trade side) must derive it from the log via `findLatestTradeSideBySubscription`, adding a read on every heartbeat tick per active subscription.
+- Errors and HOLD signals are also logged, which inflates row count relative to actual filled trades.
 
 ---
 
@@ -340,6 +411,44 @@ Tests the generic fetch wrapper: Zod schema validation on response, `ApiError` r
 
 ---
 
+## 13. Architecture Quantum
+
+An **architectural quantum** is the smallest independently deployable unit that includes all the structural elements required for it to function.
+
+VanTrade is a **single quantum**: one NestJS API process, one PostgreSQL database, and one stateless Next.js frontend. All three must be deployed together for the system to function; there is no partial deployment path.
+
+**Why single quantum is appropriate now:**
+- The domain is small — five entities, three roles, one broker integration.
+- The team is small; the operational overhead of multiple independently deployed services would outweigh the benefit.
+- The shared type package (`@vantrade/types`) already enforces an explicit contract boundary between the API and web, making a future split straightforward.
+
+**Migration path to multiple quanta:** The domain-partitioned modules make a future extraction tractable without a full rewrite. If the heartbeat execution engine needed to scale independently (e.g., hundreds of concurrent subscriptions saturating the API process), `HeartbeatModule` and `TradingModule` could be extracted into a dedicated worker service. The clean boundary points already exist: `IBrokerAdapter` is the broker interface, and `TradeLogsRepository` is the persistence interface — both would become inter-service contracts.
+
+---
+
+## 14. Structural Fitness Functions
+
+Architecture governance rules are enforced through two complementary mechanisms.
+
+### 14.1 Coverage Gate (Automated)
+
+`jest --coverage` is configured to fail if line coverage on `apps/api/src/trading/` drops below 80%. This acts as a fitness function for the **testability** characteristic — ensuring the domain layer remains provably correct as it evolves.
+
+### 14.2 Import Boundary Rules (Grep-Verifiable)
+
+The following rules are documented as non-negotiable in `CLAUDE.md` and can be verified with one-line grep commands, making them suitable for a CI pre-merge check:
+
+| Rule | Verification command |
+|---|---|
+| No Prisma outside `*.repository.ts` | `grep -r "PrismaService" --include="*.ts" \| grep -v ".repository.ts"` |
+| No Alpaca SDK outside the adapter | `grep -r "alpaca-trade-api" --include="*.ts" \| grep -v "alpaca.adapter.ts"` |
+| No `any` type | `grep -rn ": any" --include="*.ts"` |
+| No business logic in web app | `grep -r "PrismaService\|IBrokerAdapter" apps/web --include="*.ts"` |
+
+If any command returns output, the boundary has been violated. These checks require no additional tooling and can be wired into a CI pipeline as a shell step.
+
+---
+
 ## Architecture Decision Summary
 
 | Architecture Practice | Where Applied |
@@ -356,3 +465,5 @@ Tests the generic fetch wrapper: Zod schema validation on response, `ApiError` r
 | Append-Only Ledger | `TradeLog` — no update/delete methods in repository |
 | End-to-End Type Safety | TypeScript + Zod from DB schema to React component |
 | Monorepo Orchestration | Turborepo build cache + pnpm workspaces |
+| Single Architecture Quantum | One deployable unit; modules pre-partitioned for future extraction |
+| Structural Fitness Functions | Coverage gate (80%) + grep-verifiable import boundary rules |

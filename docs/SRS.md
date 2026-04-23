@@ -25,7 +25,7 @@ It includes:
 VanTrade is a multi-tenant algorithmic strategy marketplace where:
 - **Providers** publish strategy blueprints,
 - **Testers** subscribe and execute strategies using their own Alpaca paper accounts,
-- **Admins** verify blueprints and monitor platform safety.
+- **Admins** verify blueprints, manage user roles, and monitor platform safety.
 
 VanTrade is implemented as a monorepo:
 - `apps/api` — NestJS backend (business logic)
@@ -44,7 +44,7 @@ VanTrade is implemented as a monorepo:
 ### 4.2 MVP Success Metrics
 1. Users can register/login and access role-appropriate features.
 2. Providers can CRUD their own blueprints.
-3. Admins can verify/unverify blueprints.
+3. Admins can verify/unverify blueprints and assign user roles.
 4. Testers can subscribe/unsubscribe and manage active subscriptions.
 5. Heartbeat executes active subscriptions and writes trade logs.
 6. API keys are encrypted before persistence.
@@ -81,6 +81,7 @@ VanTrade is implemented as a monorepo:
    - Connects Alpaca paper API keys and runs subscribed strategies.
 3. **Admin**
    - Reviews and verifies platform-safe blueprints.
+   - Manages user roles — promotes Testers to Provider or Admin.
 
 ---
 
@@ -105,6 +106,7 @@ VanTrade is implemented as a monorepo:
 - Providers can only manage their own blueprints.
 - Testers can only manage their own subscriptions and API keys.
 - Admins can verify or revoke verification on blueprints.
+- Admins can list all users and assign roles to any user.
 
 ### FR-3 Blueprint Management
 - Provider shall create blueprint with validated parameters.
@@ -112,9 +114,11 @@ VanTrade is implemented as a monorepo:
 - Public users shall view verified blueprints in marketplace.
 - Users shall view individual blueprint details.
 
-### FR-4 Admin Verification
+### FR-4 Admin Governance
 - Admin shall list blueprints requiring review.
 - Admin shall set blueprint verification status.
+- Admin shall list all registered users.
+- Admin shall assign any role (TESTER, PROVIDER, ADMIN) to any user.
 
 ### FR-5 API Key Vault
 - Tester shall store Alpaca API key/secret.
@@ -188,7 +192,7 @@ VanTrade is implemented as a monorepo:
 - No critical security violations of architecture rules.
 - Key flows validated:
   - Provider can publish blueprint
-  - Admin can verify blueprint
+  - Admin can verify blueprint and assign user roles
   - Tester can subscribe and see subscription state changes
   - Heartbeat can process and log execution outcomes
 
@@ -269,6 +273,16 @@ VanTrade is implemented as a monorepo:
 - Admin can set `isVerified` true/false.
 - Marketplace listing reflects verification state.
 
+### US-A3 — Manage User Roles
+**As an** Admin, **I want** to view all users and assign roles, **so that** I control who can publish strategies on the platform.
+
+**Acceptance Criteria**
+- Admin can list all registered users with their current role.
+- Admin can promote a Tester to Provider or Admin.
+- Admin can demote any user back to Tester.
+- Non-admin users receive 403 when calling these endpoints.
+- New registrations always start as Tester regardless of request body.
+
 ### 11.4 System Stories
 
 ### US-S1 — Heartbeat Executes Active Subscriptions
@@ -320,8 +334,9 @@ VanTrade is implemented as a monorepo:
 
 ## 15. Traceability (MVP Summary)
 
-- **Auth + RBAC:** FR-1, FR-2 → US-T1, US-T2, US-A1, US-A2
+- **Auth + RBAC:** FR-1, FR-2 → US-T1, US-T2, US-A1, US-A2, US-A3
 - **Blueprint Lifecycle:** FR-3, FR-4 → US-P1, US-P2, US-P3, US-A1, US-A2
+- **User Management:** FR-2, FR-4 → US-A3
 - **Execution + Logging:** FR-6, FR-7, FR-8 → US-T3, US-S1, US-S2
 - **Security + Validation:** FR-5, FR-9, NFR-1 → US-T4
 

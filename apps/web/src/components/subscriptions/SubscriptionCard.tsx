@@ -193,8 +193,13 @@ function buildRounds(logs: TradeLog[]): { rounds: TradeRound[]; holdCount: numbe
   const executed = chronological.filter((l) => l.side === 'buy' || l.side === 'sell');
   const holdCount = chronological.filter((l) => l.side === 'hold').length;
 
+  // If the log window starts mid-round (first visible log is an exit leg that has pnl
+  // stored, while its matching entry lies outside the fetched window), skip it so the
+  // entry/exit pairing stays aligned.  Only exit legs ever have a non-null pnl in the DB.
+  const startIdx = executed.length > 0 && executed[0].pnl !== null ? 1 : 0;
+
   const rounds: TradeRound[] = [];
-  let i = 0;
+  let i = startIdx;
   while (i < executed.length) {
     const entry = executed[i];
     const exit = executed[i + 1] ?? null;
@@ -282,7 +287,9 @@ function RecentTradeLogs({ subscriptionId, tradeLogs: initialLogs }: { subscript
                 </span>
               ) : round.exit === null ? (
                 <span className="rounded-full bg-yellow-900/50 px-2 py-0.5 text-yellow-400 font-semibold">Open</span>
-              ) : null}
+              ) : (
+                <span className="font-semibold text-gray-500">—</span>
+              )}
             </div>
 
             {/* Entry row */}

@@ -8,7 +8,7 @@
 
 ## 1. Project Overview
 
-**VanTrade** is a multi-tenant algorithmic trading strategy marketplace. Strategy **Providers** publish parameterized RSI-based trading Blueprints; **Testers** subscribe and execute them automatically against their personal Alpaca Paper Trading accounts; **Admins** verify Blueprints before they appear on the marketplace.
+**VanTrade** is a multi-tenant algorithmic trading strategy marketplace. Strategy **Providers** publish parameterized trading Blueprints (RSI mean-reversion or ICT/Smart Money Concepts strategies); **Testers** subscribe and execute them automatically against their personal Alpaca Paper Trading accounts, choosing which asset to run each strategy on; **Admins** verify Blueprints before they appear on the marketplace.
 
 Scope is intentionally bounded to **paper trading** — no live money, no HFT, no ML model training.
 
@@ -34,7 +34,7 @@ vantrade/
 | # | Requirement | Implementation |
 |---|---|---|
 | FR-1 | Three distinct user roles with own responsibilities, permissions, and access control | `TESTER`, `PROVIDER`, `ADMIN` enforced via `RolesGuard` + `@Roles()` on every protected endpoint |
-| FR-2 | Each role performs at least one CRUD operation | TESTER: subscribe/unsubscribe/toggle; PROVIDER: blueprint create/read/update/delete; ADMIN: verify blueprint, read all users |
+| FR-2 | Each role performs at least one CRUD operation | TESTER: subscribe/unsubscribe/toggle; PROVIDER: blueprint create/read/update/delete; ADMIN: verify blueprint, list all users, assign user roles |
 | FR-3 | Secure login/logout, user authentication | JWT via Passport.js; bcryptjs password hashing; `JwtAuthGuard` on all protected routes |
 | FR-4 | Role-based authorization and access control | Server-side `RolesGuard` — client cannot escalate privileges regardless of what it sends |
 | FR-5 | From-scratch development | Full custom implementation; no boilerplate app templates used |
@@ -65,12 +65,13 @@ User
 └── blueprints[]  → Blueprint
 
 Blueprint
-├── id, title, description, symbol, parameters (Json)
+├── id, title, description, parameters (Json)
 ├── isVerified, authorId → User
 └── subscriptions[] → Subscription
 
 Subscription
 ├── id, isActive
+├── symbolOverride String?   ← tester-chosen asset; overrides blueprint symbol
 ├── userId → User
 ├── blueprintId → Blueprint
 └── tradeLogs[] → TradeLog
@@ -82,9 +83,9 @@ ApiKey
 └── @@unique([userId, label])
 
 TradeLog
-├── id, signal, side (TradeSide enum: buy|sell|hold)
-├── price, quantity, orderId, pnl, errorMessage
-├── createdAt (append-only — no updatedAt)
+├── id, symbol, side (TradeSide enum: buy|sell|hold)
+├── price, quantity, pnl Float?, status String
+├── executedAt (append-only — no updatedAt)
 └── subscriptionId → Subscription
 ```
 
@@ -93,9 +94,11 @@ TradeLog
 | Decision | Rationale |
 |---|---|
 | `TradeSide` as Prisma enum | Prevents casing inconsistencies (`"BUY"` vs `"buy"`) that break alternation logic |
-| `Blueprint.parameters` as `Json` | Flexible enough for multiple strategy types; validated by Zod at application layer on every read |
+| `Blueprint.parameters` as `Json` | Flexible enough for multiple strategy types (RSI, ICT); validated by Zod at application layer on every read |
 | `@@unique([userId, label])` on `ApiKey` | Allows multiple broker accounts per user, identified by label |
+| `Subscription.symbolOverride` nullable | Lets testers target different assets per subscription without altering blueprint parameters; null means use blueprint default |
 | No `updatedAt` on `TradeLog` | Enforces append-only semantics — schema itself prevents accidental updates |
+| `TradeLog.status` as free-text String | Stores rich broker/engine state (`"filled"`, `"bracket_entry:BTCUSD:buy:..."`, `"ict_hold:NO_H1_BIAS"`) without requiring enum migrations |
 | `PrismaModule` declared `@Global()` | `PrismaService` available to all repositories without explicit imports in each module |
 
 ---
@@ -114,6 +117,8 @@ The trading subsystem enforces strict three-layer separation across all broker-r
 
 **Domain layer functions:**
 
+*RSI strategy*
+
 | Function | Purpose |
 |---|---|
 | `calculateRSI(prices, period)` | Wilder's smoothing RSI |
@@ -122,7 +127,21 @@ The trading subsystem enforces strict three-layer separation across all broker-r
 | `calculatePnL(entry, exit, qty, side)` | Realised profit/loss for a closed position |
 | `calculateUnrealisedPnL(entry, current, qty)` | Mark-to-market P&L for an open position |
 
-**Why this is suitable:** The domain layer has no infrastructure imports and no side effects. It is fully unit-testable with no mocks. This is a critical property in finance — calculation correctness must be provable in isolation, not inferred from end-to-end runs. The adapter pattern means broker migration requires writing one new file and changing one DI binding, with zero changes to domain or heartbeat logic.
+*ICT / Smart Money Concepts strategy*
+
+| Function | Purpose |
+|---|---|
+| `aggregateBars(bars, n)` | Resamples M5 bars into M15, H1, etc. |
+| `detectSwingPoints(bars, lookback)` | Identifies local swing highs and lows |
+| `detectMarketStructure(bars, swings)` | Derives BULLISH / BEARISH / NEUTRAL bias via BOS/CHoCH |
+| `detectOrderBlock(bars, type)` | Finds the most recent valid OB entry zone |
+| `detectFairValueGap(bars, type)` | Finds the most recent unmitigated FVG |
+| `classifyPriceZone(price, high, low)` | Returns PREMIUM / DISCOUNT / AT_EQUILIBRIUM |
+| `hasLiquiditySweep(bars, level, type)` | Detects stop-hunt wick past a swing level |
+| `checkLimitOrderFill(bar, position)` | Simulates TP/SL fill in backtests |
+| `generateIctSignal(ctx)` | Full A+ setup checklist — all five ICT conditions must pass |
+
+**Why this is suitable:** A trading platform has a direct obligation to its users that financial calculations are correct. Correctness must be provable in isolation — not inferred from end-to-end runs where infrastructure noise can mask logic errors. Pure domain functions satisfy this: they can be verified with unit tests against known inputs independently of any database or network state. The adapter boundary also protects the platform from broker vendor lock-in; migrating from Alpaca to another broker requires writing one new file and changing one DI binding, with zero risk of accidentally altering pricing logic.
 
 **DI binding** (`apps/api/src/trading/trading.module.ts`):
 ```typescript
@@ -145,7 +164,7 @@ Every feature module has exactly one `*.repository.ts` that is the sole file per
 
 `PrismaModule` is declared `@Global()` so `PrismaService` is available to all repositories without explicit module imports.
 
-**Why this is suitable:** Services remain focused on business rules and are decoupled from Prisma query syntax. Repository interfaces are straightforward to mock in service-level tests. Any future ORM migration only requires rewriting repository files.
+**Why this is suitable:** Financial platforms need the ability to audit and evolve their persistence layer without touching business logic. Confining all Prisma access to repository files means the ORM, database engine, or query strategy can be changed without any risk of inadvertently altering subscription management, heartbeat execution, or RBAC behaviour. Repository interfaces are also straightforward to mock in service-level tests, keeping the test suite fast and reliable.
 
 ---
 
@@ -214,7 +233,7 @@ The heartbeat is the core runtime engine. On each tick it processes all active s
 
 `TradeLog` rows are never updated or deleted. `TradeLogsRepository` exposes only `create` — no `update` or `delete` methods exist. Every execution outcome (filled order, hold, error) is appended as a new row.
 
-**Why this is suitable:** An immutable ledger is a standard practice for financial audit trails. Any position can be reconstructed or any P&L re-calculated from the log alone. The append-only constraint also enables the smart side resolver: it reads `findLatestTradeSideBySubscription` to determine what the next expected trade direction should be.
+**Why this is suitable:** Users need to be able to independently verify their trade history and P&L. An audit trail that can be edited provides no meaningful protection against disputes or data integrity errors. The immutable log also enables the trade side alternation logic in the heartbeat: the system derives "what should happen next" solely from what has been recorded — there is no mutable state to go out of sync.
 
 ---
 
@@ -226,7 +245,7 @@ Broker API keys are encrypted with **AES-256-GCM** before database storage. The 
 
 **Storage format:** `iv:authTag:ciphertext` (all hex, colon-delimited) in the `ApiKey` table.
 
-**Why this is suitable:** Even if the database is fully compromised, raw API keys are not exposed. AES-256-GCM provides authenticated encryption — any tampering of the stored ciphertext is detected before decryption. The "pass as argument, never store" rule prevents credentials from leaking through object state or logs.
+**Why this is suitable:** Users are trusting the platform with their live brokerage credentials. A database breach that exposed plaintext API keys would allow an attacker to place real trades on users' accounts — a direct financial harm. AES-256-GCM ensures that even a full database dump reveals nothing usable, and authenticated encryption detects any tampering with stored ciphertext before decryption is attempted. The "pass as argument, never store" rule ensures credentials cannot leak through object state, logs, or serialisation.
 
 ---
 
@@ -267,15 +286,27 @@ Every protected endpoint uses `@UseGuards(JwtAuthGuard, RolesGuard)` and `@Roles
 |---|---|
 | `TESTER` | Browse marketplace, subscribe to blueprints, manage API keys, view own trade logs |
 | `PROVIDER` | All TESTER permissions + create, edit, delete own blueprints |
-| `ADMIN` | All permissions + verify blueprints, view all users and blueprints |
+| `ADMIN` | All permissions + verify blueprints, view all users and blueprints, assign user roles |
 
-**Why this is suitable:** Server-side enforcement means the client cannot escalate privileges regardless of what it sends. The decorator pattern keeps role requirements co-located with the route definition, making the security posture easy to audit in a single file pass.
+**Admin endpoints:**
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `GET /blueprints/admin/all` | Read | View all blueprints including unverified |
+| `PATCH /blueprints/:id/verify` | Update | Approve or revoke a blueprint |
+| `GET /auth/users` | Read | List all registered users |
+| `PATCH /auth/users/:id/role` | Update | Promote or demote a user's role |
+| `GET /heartbeat/status` | Read | Monitor system cron execution |
+
+Privileged roles (PROVIDER, ADMIN) are assigned by an admin via `PATCH /auth/users/:id/role`. Registration always produces `Role.TESTER` — role is never accepted from the request body.
+
+**Why this is suitable:** In a marketplace where Providers publish strategies executed against real broker accounts, privilege escalation is a direct financial risk — a malicious actor who could self-assign `PROVIDER` could publish harmful blueprints without admin review. Server-side enforcement removes this attack surface: the client cannot influence its own role regardless of what it sends. The decorator pattern keeps role requirements co-located with each route definition, making the security posture auditable in a single file pass.
 
 ---
 
 ### 2.9 Backtest Simulation Engine
 
-**Files:** `apps/api/src/blueprints/blueprints.service.ts`
+**Files:** `apps/api/src/blueprints/backtest.service.ts`
 
 Blueprints expose two backtest endpoints:
 
@@ -290,7 +321,65 @@ The service fetches historical bars, replays the RSI signal over them, and simul
 
 ---
 
-### 2.10 Typed Frontend API Client Layer
+### 2.10 CodeCharta Static Analysis as a Fitness Function
+
+**Tool:** CodeCharta v1.142.0 (`rawtextparser` + `gitlogparser` + `merge`)
+**Output:** `vantrade.cc.json` — visualised in `codecharta-visualization`
+
+CodeCharta was used as a continuous architectural fitness function. Two metric sources are merged into a single map:
+
+| Parser | Metric produced | What it reveals |
+|---|---|---|
+| `rawtextparser` | `rloc` (real lines of code) | File size / complexity |
+| `gitlogparser` | `number_of_commits` | Churn — how often a file changes |
+
+Files that are **both large and frequently changed** are the highest-risk architectural hotspots. CodeCharta renders them as tall, red buildings. A file that is large but stable is acceptable; a file that is small but changes constantly signals an unclear boundary.
+
+#### Hotspots Identified and Resolved
+
+After running the analysis, five files were flagged as red:
+
+**1. `blueprints.service.ts` (471 LOC) — Single Responsibility Violation**
+
+- **Problem:** One service class owned both Blueprint CRUD operations and a complete backtest simulation engine (RSI loop, ICT loop, Sharpe ratio, max drawdown calculation). Two unrelated reasons to change in one file.
+- **Fix:** Extracted `BacktestService` as a separate NestJS provider in `BlueprintsModule`. `BlueprintsService` dropped from 471 → 139 lines. `BlueprintsController` now injects both services and routes backtest endpoints to `BacktestService`.
+
+**2. `alpaca.adapter.ts` (473 LOC) — God Class Violation**
+
+- **Problem:** HTTP-based market data fetching (no Alpaca SDK required), SDK-based trading operations, and response mapping all lived in one class. Any change to data fetching also modified the file responsible for order execution.
+- **Fix:** Extracted `AlpacaMarketDataClient` — a pure HTTP client that does not import the Alpaca SDK. `AlpacaAdapter` injects it via constructor DI and delegates all bar/price fetching. The CLAUDE.md architectural rule is preserved: only `alpaca.adapter.ts` imports the Alpaca SDK.
+- **Further refinement:** Crypto symbol candidate resolution for price lookup was also moved into `AlpacaMarketDataClient`, reducing `alpaca.adapter.ts`'s imports from `symbol-normalizer` from 3 functions to 1. The remaining coupling (`getStockSymbolCandidates` for order placement, the Alpaca SDK, `@vantrade/types`) is intentional — the adapter is the designated coupling hub in the hexagonal architecture.
+
+**3. `BacktestPanel.tsx` + `BacktestPreviewPanel.tsx` — DRY Violation**
+
+- **Problem:** Five utility functions (`formatCurrency`, `formatWinRate`, `formatBarTime`) and two sub-components (`EquityCurve`, `TradeRow`) were copy-pasted verbatim between both files. Any fix to shared display logic required two edits.
+- **Fix:** Extracted to:
+  - `apps/web/src/components/backtest/EquityCurve.tsx`
+  - `apps/web/src/components/backtest/TradeRow.tsx`
+  - `apps/web/src/lib/backtest-formatters.ts`
+- Both panels import from the shared location. Each panel shrank from ~265 lines to ~180 lines.
+
+**4. `BlueprintReviewTable.tsx` — High Churn (Instability)**
+
+- **Problem:** The component itself (64 lines, pure presentation) was not intrinsically complex. Its red colour was driven by `number_of_commits` — it had been edited repeatedly because the admin page previously had data-fetching and mutation logic inline, causing cascading changes to this component.
+- **Fix:** The `useAdmin` hook was extracted to absorb all state management and API calls. `BlueprintReviewTable` is now a stable presentation component (`blueprints: Blueprint[], onVerify: fn`). Future changes to admin business logic will not touch it, so its churn rate will decline.
+
+#### Why CodeCharta Is Suitable as a Fitness Function
+
+Running the analysis before and after the refactoring session confirms the targeted improvements:
+
+| Metric | Before | After |
+|---|---|---|
+| `blueprints.service.ts` LOC | 471 | 139 |
+| `alpaca.adapter.ts` LOC | 473 | 197 |
+| `BacktestPanel.tsx` LOC | 265 | 177 (shared components extracted) |
+| Extracted files (`backtest.service.ts`, `AlpacaMarketDataClient`, etc.) | — | Start at 1 commit each (green) |
+
+The colour scale is relative — some files will always be redder than others. The goal is not to make everything green but to **eliminate outliers**: files whose LOC and churn are significantly above the project average. After the refactoring, the distribution is more uniform and no single file dominates both axes simultaneously.
+
+---
+
+### 2.11 Typed Frontend API Client Layer
 
 **Directory:** `apps/web/src/lib/api-client/`
 
@@ -310,14 +399,18 @@ The following capabilities were successfully implemented and are functional end-
 | Capability | Status |
 |---|---|
 | Multi-role user system (PROVIDER / TESTER / ADMIN) | Complete |
+| Admin user management — list users, assign roles | Complete |
 | Blueprint CRUD with admin verification gate | Complete |
-| RSI-based signal engine — pure functions, fully tested | Complete |
+| RSI mean-reversion signal engine — pure functions, fully tested | Complete |
+| ICT / Smart Money Concepts engine — multi-timeframe, 9 pure functions | Complete |
 | Heartbeat auto-execution every 60 seconds | Complete |
 | Per-user encrypted Alpaca API credentials | Complete |
-| Backtest simulation with equity curve | Complete |
+| Backtest simulation with equity curve, slippage, commission, Sharpe, max drawdown | Complete |
 | Live market bar fetching — stocks and crypto | Complete |
 | Open positions viewer (per-user, credential-delegated) | Complete |
-| Subscription stats and paginated trade log | Complete |
+| Subscription stats with realized + unrealized PnL from live Alpaca positions | Complete |
+| Paginated trade log with server-side fetch | Complete |
+| Tester symbol override — choose which asset to run each strategy on | Complete |
 | Immutable append-only TradeLog audit trail | Complete |
 | Shared Zod contracts between API and Web | Complete |
 | Role-enforced API surface | Complete |
@@ -327,7 +420,8 @@ The following capabilities were successfully implemented and are functional end-
 | Smart trade side alternation enforcement | Complete |
 
 **Test coverage:**
-- `trading.engine.ts` — fully covered with a dedicated 101-line spec
+- `trading.engine.ts` — fully covered with a dedicated spec (RSI, SMA, signal, PnL, all ICT functions)
+- `heartbeat.service.spec.ts` — 25 tests: status, tick behaviour, filledPrice fallback, PnL regression suite for both execution modes
 - `blueprints.service.ts` — backtest and dry-run logic covered with a 332-line spec
 - `apps/web/src/lib/api-client/base.ts` — fetch wrapper covered (Zod validation, error handling, 204 handling)
 
@@ -343,7 +437,7 @@ The 80% coverage target applies only to `apps/api/src/trading/`. Several high-ri
 
 | File | Original gap | Resolution |
 |---|---|---|
-| `heartbeat.service.spec.ts` | Market hours, side resolution, error isolation, credential decryption untested | Already comprehensive — 13 tests covering all branches |
+| `heartbeat.service.spec.ts` | Market hours, side resolution, error isolation, credential decryption untested | **25 tests** covering all branches including full PnL regression suite — see §4.11 |
 | `api-keys.service.spec.ts` | Only `verify()` was tested | **Fixed:** Full suite added — `upsert` (encrypts both fields, custom label, confirmation), `hasKey` (true/false), `listKeys` (maps labels, empty), `remove` (not found, by label, confirmation), `verify` (not found, decrypts, valid/invalid, custom label) |
 | `subscriptions.service.spec.ts` | Only `getStats()` and pagination tested | **Fixed:** Added `create` (blueprint not found, unverified, already subscribed, happy path), `toggle` (not found, wrong user, activate, deactivate), `remove` (not found, wrong user, happy path), `findByUser` |
 | `positions.service.spec.ts` | Untested | Already resolved in a prior session — 4 tests covering not-found, decryption, positions list, empty positions |
@@ -508,7 +602,44 @@ const US_MARKET_TIMEZONE = process.env.MARKET_TIMEZONE ?? 'America/New_York';
 
 ---
 
-### 4.10 No User Notifications
+### 4.10 PnL Double-Counted on Entry Legs
+
+**Status: Resolved**
+
+**Problem:** The heartbeat P&L calculation used `if (lastTradeSide !== null)` as the gate for recording realised P&L. This fired on every trade after the first — including entry legs. In `BUY_LOW_SELL_HIGH` mode, the second BUY (a new entry after a SELL exit) would look up the previous SELL's price as the "entry price" and compute a spurious P&L. Over several rounds this compounded heavily: a subscription with two closed rounds showing -$48 and -$144 was reported as -$505 in the stats.
+
+**Root cause:** `lastTradeSide` tracks the last *executed* side, which is a SELL after a round closes. The next BUY is a fresh entry — not a close — but the old condition could not distinguish the two.
+
+**Fix applied** (`heartbeat/heartbeat.service.ts`):
+
+```typescript
+// Before (buggy):
+if (lastTradeSide !== null) { /* computed pnl on entries too */ }
+
+// After:
+const isExitLeg = executionMode === 'SELL_HIGH_BUY_LOW'
+  ? signalSide === OrderSide.BUY
+  : signalSide === OrderSide.SELL;
+if (isExitLeg) { /* pnl only on the leg that actually closes a position */ }
+```
+
+In `BUY_LOW_SELL_HIGH` mode, only SELL legs record P&L. In `SELL_HIGH_BUY_LOW`, only BUY legs do. Entry legs always receive `pnl: null`.
+
+**Regression tests added** (`heartbeat.service.spec.ts`): 10 new PnL tests covering both execution modes, including a full round-trip replay of the exact sequence that produced the -$505 discrepancy.
+
+---
+
+### 4.11 Trades Counter Included Hold Ticks
+
+**Status: Resolved**
+
+**Problem:** The "Trades" stat cell in `SubscriptionCard` displayed `totalTrades`, which counts every row in `TradeLog` — including HOLD ticks logged when RSI was in the neutral zone or when the signal did not match the expected alternating side. A subscription with 4 actual order pairs and 22 hold ticks showed "27" instead of "8", confusing users comparing the number against their Alpaca order history.
+
+**Fix applied** (`SubscriptionCard.tsx`): Changed the displayed value from `subStats.totalTrades` to `subStats.executedTrades` (= `buyCount + sellCount`). `totalTrades` is still available in the stats response for internal use.
+
+---
+
+### 4.13 No User Notifications
 
 **Status: Not resolved**
 
@@ -518,7 +649,27 @@ const US_MARKET_TIMEZONE = process.env.MARKET_TIMEZONE ?? 'America/New_York';
 
 ---
 
-## 7. Architecture Decision Summary
+## 7. Architecture Risk Assessment
+
+A full risk matrix is documented in `docs/RISK_ASSESSMENT.md`. The five components assessed are:
+
+| Component | Risk Score | Highest Risk Factor |
+|---|---|---|
+| Heartbeat Execution | 39 ⚠️ | Scalability — all subscriptions share one in-process cron loop |
+| API Key Vault | 16 | Security — encryption key loss makes all credentials unrecoverable |
+| Auth / Registration | 18 | Security — JWT cannot be revoked before expiry |
+| Blueprint Marketplace | 14 | Availability — unverified blueprint parameters can cause heartbeat skips |
+| Subscription Management | 15 | Data Integrity — subscription toggle state is the sole heartbeat gate |
+
+**Top mitigations identified:**
+
+1. **P0 — Heartbeat scalability:** Extract to a dedicated worker process if subscription count exceeds ~100 active.
+2. **P0 — External monitoring:** Add health-check endpoint and alerting for missed heartbeat ticks.
+3. **P1 — JWT revocation:** Introduce a short-lived token TTL (15 min) with a refresh token flow to limit the blast radius of a compromised token.
+
+---
+
+## 8. Architecture Decision Summary
 
 | Decision | Pattern Applied | Location |
 |---|---|---|
@@ -534,3 +685,6 @@ const US_MARKET_TIMEZONE = process.env.MARKET_TIMEZONE ?? 'America/New_York';
 | Audit trail | Append-only ledger | `TradeLog` — no update/delete |
 | End-to-end type safety | TypeScript + Zod | DB schema → API → React component |
 | Build efficiency | Monorepo with cache | Turborepo + pnpm workspaces |
+| Architectural health monitoring | CodeCharta fitness function | `rawtextparser` + `gitlogparser` → `vantrade.cc.json` |
+| SRP enforcement | God-class decomposition | `BacktestService` extracted from `BlueprintsService`; `AlpacaMarketDataClient` extracted from `AlpacaAdapter` |
+| DRY enforcement | Shared component extraction | `EquityCurve`, `TradeRow`, `backtest-formatters.ts` shared across backtest panels |
